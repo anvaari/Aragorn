@@ -1,9 +1,10 @@
 from urllib.parse import urlencode
 from datetime import datetime,timedelta
+from jdatetime import datetime as jdt
 
 def event_to_google_calendar_link(date_time:str,title:str,location:str,interval:int=2,timezone:str="+3:30"):
     # Parse date/time into Google Calendar's required format
-    dt = datetime.strptime(f"{date_time}", "%Y-%m-%d %H:%M")
+    dt = jdt.strptime(date_time,"%Y-%m-%d %H:%M").togregorian()
     start = dt.strftime(f"%Y%m%dT%H%M00Z{timezone}")
     end = (dt + timedelta(hours=interval)).strftime(f"%Y%m%dT%H%M00Z{timezone}")
 

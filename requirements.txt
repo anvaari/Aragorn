@@ -2,3 +2,4 @@ fastapi[standard]==0.115.12
 pydantic-settings
 requests
 rich==14.0.0
+jdatetime==5.2.0
