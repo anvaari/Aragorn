@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     telegram_chat_id: str = Field(..., alias="telegram_chat")
     openai_api_key: str = Field(..., alias="openai_api_k")
     aragorn_token: str = Field(...,alias="aragorn_tk")
+    telegram_proxy: str = Field(...,alias="telegram_proxy")
     log_level: str
     database_file_path: str
 

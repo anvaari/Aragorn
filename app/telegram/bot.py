@@ -7,8 +7,11 @@ logger = get_app_logger(__name__)
 def send_to_telegram(text):
     token = app_settings.telegram_bot_token
     chat_id = app_settings.telegram_chat_id
-    proxy = "http://127.0.0.1:20170"
-    proxies = {'http':proxy,'https':proxy}
+    proxy = app_settings.telegram_proxy
+    if 'http' in proxy :
+        proxies = {'http':proxy,'https':proxy}
+    else:
+        proxies = {}
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     data = {
         "chat_id": chat_id, 
