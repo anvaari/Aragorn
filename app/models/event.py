@@ -8,9 +8,11 @@ class EventCreate(BaseModel):
     performers: str
     ticket_info: str
     instagram_link: str
-    datetime: str = ""
-    google_calendar_link: str = ""
 
-    def model_post_init(self, __context):
-        self.datetime = f"{self.date} {self.time}"
-        self.google_calendar_link = event_to_google_calendar_link(self.datetime,self.title,self.location)
+    @property
+    def datetime(self):
+        return f"{self.date} {self.time}"
+    
+    @property
+    def google_calendar_link(self):
+        return event_to_google_calendar_link(self.datetime,self.title,self.location)
