@@ -14,7 +14,7 @@ def extract_event_from_ig_text(ig_text:str) -> EventCreate:
         messages=[
             {
                 "role": "system", 
-                "content": f"Extract music event info from Persian text and return it as a JSON with these fields: title (string), date (in Shamsi calendar and YYYY-MM-DD, use {jdate.today().year} if no year specified), time (HH:MM), location (str), performers(comma separated str name with instrument in parenthesis), ticket_info (str), instagram_link(str). If a field is missing, use null or an empty string."
+                "content": f"Extract music event info from Persian text and return it as a JSON with these fields: title (string), date (in Shamsi calendar and YYYY-MM-DD, use {jdate.today().year} if no year specified), time (HH:MM), location (str), performers(comma separated str name with instrument in parenthesis), ticket_info (str, information about how to buy a ticket (phone number, whatsapp,telegram ,web link, ...)), instagram_link(str). If a field is missing, use null or an empty string."
             },
             {
                 "role": "user", 
