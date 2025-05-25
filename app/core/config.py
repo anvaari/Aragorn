@@ -4,7 +4,7 @@ from pydantic import Field
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_ignore_empty= False,
+        env_ignore_empty=True,
         env_file=".env",
         env_file_encoding='utf-8'
     )
