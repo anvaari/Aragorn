@@ -8,6 +8,20 @@ from jdatetime import date as jdate
 logger = get_app_logger(__name__)
 
 def extract_event_from_ig_text(ig_text:str) -> EventCreate:
+    """
+    Extracts structured event information from Persian text describing a music event.
+    
+    Uses a GPT model to parse the input text and extract fields such as title, date (in Shamsi calendar), time, location, performers, ticket information, and Instagram link. Returns an EventCreate object populated with the extracted data. Raises a ValueError if the GPT output is missing, cannot be parsed as JSON, or does not conform to the expected event schema.
+    
+    Args:
+        ig_text: Persian text containing details of a music event.
+    
+    Returns:
+        An EventCreate object with structured event information.
+    
+    Raises:
+        ValueError: If the GPT output is missing, cannot be parsed as JSON, or cannot be converted into an EventCreate object.
+    """
     client = get_openai_client()
     response = client.chat.completions.create(
         model=app_settings.openai_model,

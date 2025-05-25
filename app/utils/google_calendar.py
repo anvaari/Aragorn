@@ -4,6 +4,19 @@ from jdatetime import datetime as jdt
 
 def event_to_google_calendar_link(date_time:str,title:str,location:str,interval:int=2,timezone:str="+3:30"):
     # Parse date/time into Google Calendar's required format
+    """
+    Generates a Google Calendar event creation URL from a Persian date-time string and event details.
+    
+    Args:
+        date_time: Event start time in Persian calendar, formatted as "%Y-%m-%d %H:%M".
+        title: Title of the event.
+        location: Location of the event.
+        interval: Duration of the event in hours (default is 2).
+        timezone: Timezone offset in "+HH:MM" format (default is "+3:30").
+    
+    Returns:
+        A URL string that opens a pre-filled Google Calendar event with the specified details.
+    """
     dt = jdt.strptime(date_time,"%Y-%m-%d %H:%M").togregorian()
     start = dt.strftime(f"%Y%m%dT%H%M00Z{timezone}")
     end = (dt + timedelta(hours=interval)).strftime(f"%Y%m%dT%H%M00Z{timezone}")

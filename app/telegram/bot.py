@@ -5,6 +5,15 @@ from log.logger import get_app_logger
 logger = get_app_logger(__name__)
 
 def send_to_telegram(text):
+    """
+    Sends a text message to a Telegram chat using the Telegram Bot API.
+    
+    Args:
+        text: The message content to send.
+    
+    Returns:
+        A tuple containing the HTTP status code and the JSON response from the Telegram API.
+    """
     token = app_settings.telegram_bot_token
     chat_id = app_settings.telegram_chat_id
     proxy = app_settings.tg_gpt_ig_proxy
