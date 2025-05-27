@@ -9,6 +9,15 @@ logger = get_app_logger(__name__)
 
 def extract_caption(ig_link : str) -> str:
     # TODO: Better check for proxy
+    """
+    Extracts the caption from an Instagram post given its URL.
+    
+    Raises:
+        ValueError: If the shortcode cannot be extracted from the URL or if the post caption is empty.
+    
+    Returns:
+        The caption text of the Instagram post, followed by the original post URL.
+    """
     if 'http://' in  app_settings.tg_gpt_ig_proxy:
         os.environ['http_proxy'] = app_settings.tg_gpt_ig_proxy
         os.environ['https_proxy'] = app_settings.tg_gpt_ig_proxy
@@ -40,6 +49,15 @@ def extract_caption(ig_link : str) -> str:
 
 
 def extract_short_code_from_ig_link(ig_link:str) -> None|str:
+    """
+    Extracts the shortcode from an Instagram URL.
+    
+    Args:
+    	ig_link: The Instagram post URL, which may be of type /p/, /reel/, or /tv/.
+    
+    Returns:
+    	The extracted shortcode if present; otherwise, None.
+    """
     match = re.search(r"instagram\.com/(?:p|reel|tv)/([A-Za-z0-9_-]+)", ig_link)
     if match:
         return match.group(1)

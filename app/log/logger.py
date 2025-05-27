@@ -15,10 +15,20 @@ class MyRichLogHandler(logging.StreamHandler):
         logging.CRITICAL: "[bold red]CRITICAL[/bold red]",
     }
     def emit(self, record):
+        """
+        Outputs a formatted log record to the console using rich formatting.
+        
+        Overrides the base handler to print log messages with enhanced styling and clickable file links.
+        """
         msg = self.format(record)
         rprint(msg)
 
     def format(self, record):
+        """
+        Formats a log record with colored level names and clickable file links.
+        
+        Replaces the log level name with a colored label and formats the filename and line number as a clickable link using rich markup before delegating to the base formatter.
+        """
         levelname = self.LEVEL_MAPPING.get(record.levelno, str(record.levelno))
         
         file_name_line = (
@@ -36,6 +46,18 @@ _my_log_format = ("%(asctime)s - %(levelname)s "
                    "%(message)s")
 
 def get_app_logger(logger_name:str) -> logging.Logger :
+    """
+    Creates and configures a logger with rich-formatted console output.
+    
+    The returned logger uses a custom handler that displays log messages with colored levels,
+    timestamps, and clickable file links in the console. The logger level is set to DEBUG.
+    
+    Args:
+        logger_name: The name of the logger to create or retrieve.
+    
+    Returns:
+        A logger instance configured with rich formatting for enhanced console output.
+    """
     logger = logging.getLogger(logger_name)
     logger.setLevel(logging.DEBUG)
 

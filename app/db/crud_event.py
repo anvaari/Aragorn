@@ -6,6 +6,15 @@ from datetime import datetime
 logger = get_app_logger(__name__)
 
 def insert_event(event:EventCreate) -> bool :
+    """
+    Inserts a new event record into the database.
+    
+    Args:
+    	event: An EventCreate model instance containing event details.
+    
+    Returns:
+    	True if the event was successfully inserted; False otherwise.
+    """
     event_dict = event.model_dump()
     del event_dict['date']
     del event_dict['time']
