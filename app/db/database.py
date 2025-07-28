@@ -27,6 +27,7 @@ def create_table(conn: sqlite3.Connection) -> None:
         id int primary key,
         title TEXT,
         datetime TEXT,
+        description TEXT,
         location TEXT,
         performers TEXT,
         ticket_info TEXT,
@@ -41,4 +42,6 @@ def create_table(conn: sqlite3.Connection) -> None:
     except Exception as e:
         logger.critical("Can't create event table on database",exc_info=True)
         raise e
+    else:
+        conn.commit()
 

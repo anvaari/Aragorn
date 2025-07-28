@@ -4,6 +4,7 @@ class EventCreate(BaseModel):
     title: str
     date: str
     time: str
+    description: str
     location: str
     performers: str
     ticket_info: str

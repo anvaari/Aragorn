@@ -9,13 +9,19 @@ def format_event_for_telegram(event:EventCreate) -> str:
         loc = f"""*محل برگزاری*: 
             {event.location}"""
     
+    if event.description:
+        desc = f"""📝 *توضیحات:*
+                    {event.description}"""
+    else:
+        desc = ""
+    
     msg = f"""
     🎤 *{event.title}*
 
 
     🗓️ *زمان:* 
         {event.datetime}
-
+    {"\n"+desc+"\n" if desc else ""}
     📍 {loc}
 
     👥 *هنرمندان*: 
