@@ -3,6 +3,7 @@ from core.config import app_settings
 from log.logger import get_app_logger
 import os
 import re
+import json
 
 
 logger = get_app_logger(__name__)
@@ -12,7 +13,13 @@ def extract_caption(ig_link : str) -> str:
     if 'http://' in  app_settings.tg_gpt_ig_proxy:
         os.environ['http_proxy'] = app_settings.tg_gpt_ig_proxy
         os.environ['https_proxy'] = app_settings.tg_gpt_ig_proxy
+    
+    insta_cookie = json.loads(app_settings.instagram_login_cookie)
     L = Instaloader()
+    L.load_session(
+        "anvaari",
+        insta_cookie
+    )
     ig_short = extract_short_code_from_ig_link(ig_link)
     if not ig_short:
         raise ValueError(
