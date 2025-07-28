@@ -15,9 +15,6 @@ class Settings(BaseSettings):
     openai_api_key: str = Field(..., alias="openai_api_k")
     openai_model: str = Field(...,alias="openai_model")
 
-    instaloader_login_file:str = Field(...,alias="instaloader_login_file")
-    instagram_username:str = Field(...,alias="instagram_username")
-
     aragorn_token: str = Field(...,alias="aragorn_tk")
 
     tg_gpt_ig_proxy: str = Field(...,alias="tg_gpt_ig_proxy")

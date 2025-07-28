@@ -13,10 +13,6 @@ def extract_caption(ig_link : str) -> str:
         os.environ['http_proxy'] = app_settings.tg_gpt_ig_proxy
         os.environ['https_proxy'] = app_settings.tg_gpt_ig_proxy
     L = Instaloader()
-    L.load_session_from_file(
-        filename=app_settings.instaloader_login_file,
-        username=app_settings.instagram_username
-    )
     ig_short = extract_short_code_from_ig_link(ig_link)
     if not ig_short:
         raise ValueError(
