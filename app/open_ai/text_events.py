@@ -39,7 +39,7 @@ def extract_event_from_ig_text(ig_text:str) -> EventCreate:
                         (Extra explain about event)
                         (empty string if no description needed)
                     
-                If a field is missing, use null or an empty string.
+                If a field is missing, only use an empty string.
                 """
             },
             {
