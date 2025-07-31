@@ -24,6 +24,7 @@ def extract_event_from_ig_text(ig_text:str) -> EventCreate:
                     time 
                         (HH:MM)
                         (If there is two time, pick only one and mention it in description),
+                        (If can't find time set time to 00:01 and mention in description that time not found)
                     location 
                         (str), 
                     performers
