@@ -144,7 +144,7 @@ Aragorn serves as a centralized hub for independent music events, particularly t
    openai_model=gpt-3.5-turbo
    
    # Instagram Configuration
-   instagram_login_cookie={"session": "your_session_cookie"}
+   instagram_login_cookie={"csrftoken":"your_csrf_token","sessionid":"ypur_session_id","ds_user_id":"your_ds_user_id","mid":"your_mid","ig_did":"your_ig_did"}
    
    # API Security
    aragorn_tk=your_api_bearer_token
