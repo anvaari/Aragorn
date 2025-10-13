@@ -34,4 +34,5 @@ def format_event_for_telegram(event:EventCreate) -> str:
 
     📅 [افزودن به تقویم گوگل]({event.google_calendar_link})
     """
-    return msg
+    msg_escaped = msg.replace('_','\\_')
+    return msg_escaped
