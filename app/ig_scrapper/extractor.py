@@ -1,57 +1,61 @@
-from instaloader import Instaloader,Post
+from instagrapi import Client
+from instagrapi.exceptions import ClientError
+from pydantic.networks import HttpUrl
 from core.config import app_settings
 from log.logger import get_app_logger
-import os
-import re
-import json
+from fastapi import HTTPException
 
 
 logger = get_app_logger(__name__)
 
-def extract_caption_image(ig_link : str) -> tuple[str,str]:
-    # TODO: Better check for proxy
-    if 'http://' in  app_settings.tg_gpt_ig_proxy:
-        os.environ['http_proxy'] = app_settings.tg_gpt_ig_proxy
-        os.environ['https_proxy'] = app_settings.tg_gpt_ig_proxy
+
+
+def extract_caption_image(ig_link: str) -> tuple[str, str]:
+    """
+    Extract caption and media URL from Instagram post using instagrapi.
     
-    insta_cookie = json.loads(app_settings.instagram_login_cookie)
-    L = Instaloader()
-    L.load_session(
-        "anvaari",
-        insta_cookie
-    )
-    ig_short = extract_short_code_from_ig_link(ig_link)
-    if not ig_short:
-        raise ValueError(
-            "Can't Extract short code from given url.\n"
-            f"link: {ig_link}"
-        )
-    post = Post.from_shortcode(L.context,ig_short)
-    content = post.caption
-    if post.typename == "GraphImage":
-        media_url = post.url  # photo
-    elif post.typename == "GraphVideo":
-        media_url = post.video_url or post.url  # fallback to thumbnail if video
-    elif post.typename == "GraphSidecar":  # carousel (multiple media)
-        media_url = list(post.get_sidecar_nodes())[0].display_url
-    else:
-        media_url = post.url  # fallback
+    Args:
+        ig_link: Instagram post URL
+        
+    Returns:
+        tuple: (caption with link, media_url)
+    """
+    cl = Client()
+    
+    if 'http://' in app_settings.tg_gpt_ig_proxy:
+        cl.set_proxy(app_settings.tg_gpt_ig_proxy) 
+    try:
 
-    os.environ['http_proxy'] = ""
-    os.environ['https_proxy'] = ""
+        cl.load_settings(app_settings.instagram_login_session_file)
+        media_pk = cl.media_pk_from_url(ig_link)        
+        media = cl.media_info(media_pk)
+        
+        # Extract caption
+        content = media.caption_text or ""
 
-    if not content :
-        # TODO: Better error handling
-        raise ValueError(
-            f"Content for post: {ig_link} was empty"
-        )
-
-    return content+f"\n{ig_link}",media_url
-
-
-
-def extract_short_code_from_ig_link(ig_link:str) -> None|str:
-    match = re.search(r"instagram\.com/(?:p|reel|tv)/([A-Za-z0-9_-]+)", ig_link)
-    if match:
-        return match.group(1)
-    return None
+        # Extract media URL based on type
+        if media.media_type == 1:  # Photo
+            media_url = media.thumbnail_url
+        elif media.media_type == 2:  # Video
+            media_url = media.thumbnail_url  # or media.video_url for actual video
+        elif media.media_type == 8:  # Carousel/Album
+            # Get first item from carousel
+            media_url = media.resources[0].thumbnail_url if media.resources else media.thumbnail_url
+        else:
+            media_url = media.thumbnail_url
+        
+        if media_url is str:
+            pass
+        elif media_url is None:
+            media_url = ""
+            logger.warning(f"Media URL for post {ig_link} is None")
+        elif isinstance(media_url, HttpUrl):
+            media_url = media_url.__str__()
+        if not content:
+            raise HTTPException(status_code=500,detail=f"Content for post: {ig_link} was empty")
+        return content + f"\n{ig_link}", media_url
+    
+    except ClientError as e:
+        raise HTTPException(status_code=500,detail=f"Failed to fetch Instagram post: {ig_link}. Error: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500,detail=f"Unexpected error processing {ig_link}: {str(e)}")
