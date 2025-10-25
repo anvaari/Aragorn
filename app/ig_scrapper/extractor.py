@@ -1,6 +1,7 @@
 from instagrapi import Client
 from instagrapi.exceptions import ClientError
 from pydantic.networks import HttpUrl
+from pydantic import ValidationError as PydanticValidationError
 from core.config import app_settings
 from log.logger import get_app_logger
 from fastapi import HTTPException
@@ -27,7 +28,7 @@ def extract_caption_image(ig_link: str) -> tuple[str, str]:
     try:
 
         cl.load_settings(app_settings.instagram_login_session_file)
-        media_pk = cl.media_pk_from_url(ig_link)        
+        media_pk = cl.media_pk_from_url(ig_link)
         media = cl.media_info(media_pk)
         
         # Extract caption
@@ -56,6 +57,11 @@ def extract_caption_image(ig_link: str) -> tuple[str, str]:
         return content + f"\n{ig_link}", media_url
     
     except ClientError as e:
+        logger.error("Error while connecting to Instagram.",exc_info=True)
         raise HTTPException(status_code=500,detail=f"Failed to fetch Instagram post: {ig_link}. Error: {str(e)}")
+    except PydanticValidationError as e:
+        logger.error("Error retrieving Info for Instagram link",exc_info=True)
+        raise HTTPException(status_code=500,detail=f"Can't Get Media info for give Instagram link.")
     except Exception as e:
-        raise HTTPException(status_code=500,detail=f"Unexpected error processing {ig_link}: {str(e)}")
+        logger.error("Unexpected Error while processing ig link.",exc_info=True)
+        raise HTTPException(status_code=500,detail=f"Unexpected error extracting Instagram post data: {ig_link}: \n{str(e)}")
