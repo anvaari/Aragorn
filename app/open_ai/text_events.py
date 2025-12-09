@@ -10,13 +10,14 @@ logger = get_app_logger(__name__)
 def extract_event_from_ig_text(ig_text:str) -> EventCreate:
     client = get_openai_client()
     response = client.chat.completions.create(
-        model=app_settings.openai_model,
+        model=app_settings.openai_text_model,
         messages=[
             {
                 "role": "system", 
                 "content": f"""
                 Extract music event info from Persian text and return it as a JSON with these fields: 
-                    title 
+                    title
+                        (Generate appropriate title regarding provided text)
                         (str), 
                     date 
                         (in Shamsi calendar and YYYY-MM-DD, use {jdate.today().year} if no year specified)
@@ -47,8 +48,7 @@ def extract_event_from_ig_text(ig_text:str) -> EventCreate:
                 "role": "user", 
                 "content": ig_text
             }
-        ],
-        temperature=0.2
+        ]
     )
     gpt_output = response.choices[0].message.content
 

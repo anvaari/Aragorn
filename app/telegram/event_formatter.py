@@ -15,6 +15,11 @@ def format_event_for_telegram(event:EventCreate) -> str:
     else:
         desc = ""
     
+    if event.instagram_link:
+        insta_link = f"📸 [لینک اینستاگرام]({event.instagram_link})"
+    else:
+        insta_link = ""
+    
     msg = f"""
     🎤 *{event.title}*
 
@@ -30,9 +35,8 @@ def format_event_for_telegram(event:EventCreate) -> str:
     🎟️ *نحوه خرید بلیط*: 
         {event.ticket_info}
 
-    📸 [لینک اینستاگرام]({event.instagram_link})
-
     📅 [افزودن به تقویم گوگل]({event.google_calendar_link})
+    {"\n"+insta_link if insta_link else ""}
     """
     msg_escaped = msg.replace('_','\\_')
     return msg_escaped

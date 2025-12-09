@@ -13,7 +13,8 @@ class Settings(BaseSettings):
     telegram_chat_id: str = Field(..., alias="telegram_chat")
 
     openai_api_key: str = Field(..., alias="openai_api_k")
-    openai_model: str = Field(...,alias="openai_model")
+    openai_text_model: str = Field(...,alias="openai_text_model")
+    openai_image_model: str = Field(...,alias="openai_image_model")
 
     instagram_login_session_file: str = Field(...,alias="instagram_login_session_file")
 

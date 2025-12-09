@@ -4,6 +4,7 @@ from telegram.bot import send_text_to_telegram,send_image_to_telegram
 from models.event import EventCreate
 from ig_scrapper.extractor import extract_caption_image
 from open_ai.text_events import extract_event_from_ig_text
+from open_ai.image_events import extract_text_from_image
 
 def post_manual_event_on_telegram(event:EventCreate) -> dict:
     telegram_msg = format_event_for_telegram(event)
@@ -11,7 +12,7 @@ def post_manual_event_on_telegram(event:EventCreate) -> dict:
     insert_event(event)
     return {"status":status,"tg_response":res}
 
-def post_image_event_on_telegram(event:EventCreate,photo_url) -> dict:
+def post_event_with_image_on_telegram(event:EventCreate,photo_url) -> dict:
     telegram_msg = format_event_for_telegram(event)
     status,res = send_image_to_telegram(telegram_msg,photo_url)
     insert_event(event)
@@ -20,8 +21,14 @@ def post_image_event_on_telegram(event:EventCreate,photo_url) -> dict:
 def post_ig_event_on_telegram(ig_link:str) -> dict:
     post_content,photo_url = extract_caption_image(ig_link)
     event = extract_event_from_ig_text(post_content)
-    res = post_image_event_on_telegram(event,photo_url)
+    res = post_event_with_image_on_telegram(event,photo_url)
     # TODO: It's not clean
+    return res
+
+def post_image_event_on_telegram(event_detail_byte: bytes,event_image_bytes: bytes) -> dict:
+    image_content = extract_text_from_image(event_detail_byte)
+    event = extract_event_from_ig_text(image_content)
+    res = post_event_with_image_on_telegram(event,event_image_bytes)
     return res
 
 
