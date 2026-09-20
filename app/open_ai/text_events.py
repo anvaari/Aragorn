@@ -15,38 +15,205 @@ def extract_event_from_ig_text(ig_text:str) -> EventCreate:
             {
                 "role": "system", 
                 "content": f"""
-                Extract music event info from Persian text and return it as a JSON with these fields: 
-                    title
-                        (Generate appropriate title regarding provided text)
-                        (str), 
-                    date 
-                        (in Shamsi calendar and YYYY-MM-DD, use {jdate.today().year} if no year specified, use {jdate.today().month} if no month specified)
-                        (If there is two day, pick only one and mention it in description), 
-                    time 
-                        (HH:MM)
-                        (If there is two time, pick only one and mention it in description)
-                        (If can't find time set time to 00:01 and mention in description that time not found),
-                    location
-                        (Find location of performance in text and use it here)
-                        (str), 
-                    performers
-                        (comma separated str name with instrument in parenthesis)
-                        (if you can't find instrument, just name, don't hallucinate instruments), 
-                    ticket_info 
-                        (str) 
-                        (information about how to buy a ticket) 
-                        (phone number, whatsapp,telegram ,web link, ...), 
-                    instagram_link
-                        (Use name of page to provide this -> https://instagram.com/name_of_page)
-                        (Usually name of page place in start of text)
-                        (str),
-                    description
-                        (str)
-                        (Extra explain about event)
-                        (empty string if no description needed)
-                    
-                If a field is missing, only use an empty string.
-                """
+Extract the music event information from the provided Persian text and return ONLY a JSON object matching the required schema.
+
+The text may have been extracted from an Instagram image, poster, or flyer using OCR. It may contain OCR errors, Persian/Arabic characters, Persian digits, missing punctuation, duplicated text, emojis, hashtags, and irrelevant promotional text.
+
+Your job is to identify the actual music event information from the text. Do not invent or infer information that is not supported by the text.
+
+## General rules
+
+* Extract information only from the provided text.
+* Do not hallucinate missing information.
+* If a field cannot be determined from the text, return an empty string `""`.
+* Normalize Persian and Arabic digits to Western digits where appropriate.
+* Ignore hashtags, emojis, decorative text, and unrelated promotional content unless they contain useful event information.
+* Preserve proper names as they appear in the text, but normalize obvious OCR mistakes when the intended name is clear.
+* Do not translate Persian names or event titles into English.
+* Do not add information based on general knowledge.
+* If information is ambiguous, prefer the interpretation directly supported by the text.
+
+## Fields
+
+### title
+
+Generate a short, appropriate title for the music event.
+
+Rules:
+
+* Use the event/concert name if explicitly provided.
+* Otherwise, construct a natural title using the main performer(s) and type of event.
+* Do not include the date, time, ticket price, or unnecessary promotional phrases in the title.
+* Do not invent a name for the event.
+
+Type: string
+
+### date
+
+Return the event date in the Persian Shamsi (Jalali) calendar using exactly:
+
+`YYYY-MM-DD`
+
+Rules:
+
+* Use the Shamsi/Jalali calendar, not the Gregorian calendar.
+* If the year is not explicitly mentioned, use `{jdate.today().year}`.
+* If the month is not explicitly mentioned but can be determined from the surrounding date information, use that month.
+* If the month is genuinely missing, use `{jdate.today().month}`.
+* Convert Persian and Arabic digits to Western digits.
+* If the text contains multiple event dates, select ONE date according to these rules:
+
+  1. Prefer the date explicitly associated with the performance/event.
+  2. If several dates clearly represent multiple performances of the same event, select the first performance date.
+  3. Mention the other date(s) in `description`.
+* Do not include multiple dates in this field.
+* If no date can be determined, return `""`.
+
+Type: string
+
+### time
+
+Return the event start time using exactly:
+
+`HH:MM`
+
+Rules:
+
+* Convert Persian/Arabic digits to Western digits.
+* Use 24-hour format.
+* If AM/PM or Persian equivalents are explicitly stated, convert them appropriately.
+* If multiple times are present, select the performance/start time.
+* Do not use ticket-sale time, doors-open time, or unrelated times when a performance time is available.
+* If multiple performance times are given, select the first performance time and mention the other time(s) in `description`.
+* If the event time cannot be found, return `00:01` and explicitly mention in `description` that the event time was not found in the provided text.
+
+Type: string
+
+### location
+
+Extract the location/venue where the music performance takes place.
+
+Rules:
+
+* Prefer the venue name.
+* Include useful location details when explicitly provided, such as hall name, theater name, cultural center, or address.
+* Do not confuse the ticket-sales location with the performance location.
+* Do not invent or normalize an address that is not present in the text.
+* If the performance location cannot be determined, return `""`.
+
+Type: string
+
+### performers
+
+Return the performers as a comma-separated string.
+
+Rules:
+
+* Include singers, musicians, bands, DJs, ensembles, or other explicitly identified performers.
+* If an instrument is explicitly associated with a performer, use:
+  `Name (Instrument)`
+* If an instrument is not explicitly stated, use only:
+  `Name`
+* NEVER infer an instrument from the performer's profession, name, band role, or general knowledge.
+* Do not invent instruments.
+* Do not include organizers, sponsors, presenters, photographers, venue staff, or ticket sellers as performers unless the text explicitly identifies them as performers.
+* Preserve multiple performers in the order they appear in the text.
+
+Example:
+`Ali X (Guitar), Sara Y (Vocals), ABC Band`
+
+Type: string
+
+### ticket_info
+
+Extract information about how to purchase or reserve tickets.
+
+Include information such as:
+
+* Ticket website or URL
+* Ticketing platform
+* Phone number
+* WhatsApp
+* Telegram
+* Instagram contact
+* In-person ticket purchase information
+* Reservation instructions
+* Explicit ticket price if it is directly connected to purchasing the ticket
+
+Rules:
+
+* Preserve URLs when present.
+* Preserve phone numbers when present.
+* Do not confuse the event's Instagram page with ticket information unless the text explicitly says tickets can be purchased/contacted there.
+* If there is no ticket purchasing information, return `""`.
+
+Type: string
+
+### instagram_link
+
+Identify the Instagram page associated with the event.
+
+Rules:
+
+* The Instagram username is usually located near the beginning of the text, but do not assume that every username is the event's Instagram page.
+* Look for explicit Instagram handles, `@username`, Instagram URLs, or clearly identified page/account names.
+* If a username is found, return it as:
+  `https://instagram.com/username`
+* Remove `@` from the username when constructing the URL.
+* If an Instagram URL is already present, normalize it to:
+  `https://instagram.com/username`
+* Do not include query parameters, trailing `/`, or unrelated Instagram URLs.
+* If no event-related Instagram account can be identified, return `""`.
+
+Type: string
+
+### description
+
+Provide additional useful information about the event that does not belong in the other fields.
+
+Rules:
+
+* Keep it concise.
+* Do not simply repeat the other fields.
+* Include important information such as:
+
+  * Additional event dates
+  * Additional performance times
+  * Time not found
+  * Important ticket/reservation instructions not suitable for `ticket_info`
+  * Special event information explicitly stated in the text
+* If there is nothing useful to add, return `""`.
+
+Do not invent information for the description.
+
+## Important ambiguity rules
+
+When the text contains multiple possible values:
+
+* Select only ONE `date`.
+* Select only ONE `time`.
+* Put the additional relevant date/time information in `description`.
+* Prefer values explicitly associated with the performance itself.
+* Never combine unrelated dates or times.
+* Never guess when the text does not provide enough information.
+
+## Output
+
+Return ONLY the JSON object.
+
+The JSON must contain exactly these fields:
+
+{{
+"title": "",
+"date": "",
+"time": "",
+"location": "",
+"performers": "",
+"ticket_info": "",
+"instagram_link": "",
+"description": ""
+}}                           
+"""
             },
             {
                 "role": "user", 
