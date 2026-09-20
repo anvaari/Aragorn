@@ -20,21 +20,25 @@ def extract_event_from_ig_text(ig_text:str) -> EventCreate:
                         (Generate appropriate title regarding provided text)
                         (str), 
                     date 
-                        (in Shamsi calendar and YYYY-MM-DD, use {jdate.today().year} if no year specified)
+                        (in Shamsi calendar and YYYY-MM-DD, use {jdate.today().year} if no year specified, use {jdate.today().month} if no month specified)
                         (If there is two day, pick only one and mention it in description), 
                     time 
                         (HH:MM)
-                        (If there is two time, pick only one and mention it in description),
-                        (If can't find time set time to 00:01 and mention in description that time not found)
-                    location 
+                        (If there is two time, pick only one and mention it in description)
+                        (If can't find time set time to 00:01 and mention in description that time not found),
+                    location
+                        (Find location of performance in text and use it here)
                         (str), 
                     performers
-                        (comma separated str name with instrument in parenthesis), 
+                        (comma separated str name with instrument in parenthesis)
+                        (if you can't find instrument, just name, don't hallucinate instruments), 
                     ticket_info 
                         (str) 
                         (information about how to buy a ticket) 
                         (phone number, whatsapp,telegram ,web link, ...), 
                     instagram_link
+                        (Use name of page to provide this -> https://instagram.com/name_of_page)
+                        (Usually name of page place in start of text)
                         (str),
                     description
                         (str)
