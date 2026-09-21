@@ -3,5 +3,6 @@ pydantic-settings
 requests
 rich==14.0.0
 jdatetime==5.2.0
+APScheduler>=3.11,<4
 instagrapi==2.2.1
 openai==1.82.0

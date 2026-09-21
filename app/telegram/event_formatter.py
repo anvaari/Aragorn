@@ -1,5 +1,16 @@
 from models.event import EventCreate
+from log.logger import get_app_logger
 import re
+
+logger = get_app_logger(__name__)
+
+LOC_PATTERN = r'^[-+]?([1-8]?\d(\.\d+)?|90(\.0+)?),\s*[-+]?(180(\.0+)?|((1[0-7]\d)|(\d{1,2}))(\.\d+)?)$'
+
+UNKNOWN_TIME = "00:01"
+DIGEST_MAX_CHARS = 4000  # headroom under Telegram's 4096 hard limit
+
+def _escape_md(text: str) -> str:
+    return text.replace('_','\\_')
 
 def format_event_for_telegram(event:EventCreate) -> str:
     loc_pattern = r'^[-+]?([1-8]?\d(\.\d+)?|90(\.0+)?),\s*[-+]?(180(\.0+)?|((1[0-7]\d)|(\d{1,2}))(\.\d+)?)$'
@@ -40,3 +51,33 @@ def format_event_for_telegram(event:EventCreate) -> str:
     """
     msg_escaped = msg.replace('_','\\_')
     return msg_escaped
+
+
+def format_events_digest(events: list[EventCreate], day_label: str) -> str:
+    event_blocks = []
+    for event in events:
+        time_part = "ساعت نامشخص" if event.time == UNKNOWN_TIME else f"ساعت {event.time}"
+        if re.match(LOC_PATTERN, event.location):
+            location = f"[لینک گوگل مپ](https://www.google.com/maps?q={event.location})"
+        else:
+            location = _escape_md(event.location)
+        block = f"🎤 *{_escape_md(event.title)}*\n"
+        block += f"🕐 {time_part} | 📍 {location}\n"
+        if event.instagram_link:
+            block += f"📸 [لینک اینستاگرام]({event.instagram_link})\n"
+        event_blocks.append(block)
+
+    header = f"🗓️ *رویدادهای {day_label}*\n"
+    text = header
+    included = 0
+    for block in event_blocks:
+        if included and len(text) + len(block) + 1 > DIGEST_MAX_CHARS:
+            break
+        text += "\n" + block
+        included += 1
+
+    omitted = len(events) - included
+    if omitted > 0:
+        logger.warning(f"Digest truncated: {omitted} of {len(events)} events omitted (4096 char limit)")
+        text += f"\n… و {omitted} رویداد دیگر\n"
+    return text

@@ -1,5 +1,18 @@
+from datetime import datetime
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
+from pydantic import BaseModel, Field, field_validator
+
+
+class DigestSchedule(BaseModel):
+    time: str  # "HH:MM" 24h, interpreted in digest_timezone
+    day_offset: int = 0  # 0 = today's events, 1 = tomorrow's, ...
+
+    @field_validator("time")
+    @classmethod
+    def _valid_hhmm(cls, v: str) -> str:
+        datetime.strptime(v, "%H:%M")  # raises ValueError -> fail fast at startup
+        return v
 
 
 class Settings(BaseSettings):
@@ -24,6 +37,13 @@ class Settings(BaseSettings):
 
     log_level: str = Field(...,alias="log_level")
     database_file_path: str = Field(...,alias="database_file_path")
+
+    digest_enabled: bool = Field(default=True, alias="digest_enabled")
+    digest_timezone: str = Field(default="Asia/Tehran", alias="digest_timezone")
+    digest_schedules: list[DigestSchedule] = Field(
+        default_factory=lambda: [DigestSchedule(time="12:00", day_offset=0)],
+        alias="digest_schedules",
+    )
 
 app_settings = Settings() # type: ignore
 
