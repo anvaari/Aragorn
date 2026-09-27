@@ -4,38 +4,39 @@ from log.logger import get_app_logger
 
 logger = get_app_logger(__name__)
 
-def send_text_to_telegram(text):
-    token = app_settings.telegram_bot_token
-    chat_id = app_settings.telegram_chat_id
+def _proxies() -> dict:
     proxy = app_settings.tg_gpt_ig_proxy
     # TODO: Better check for proxy
     if 'http' in proxy :
-        proxies = {'http':proxy,'https':proxy}
-    else:
-        proxies = {}
+        return {'http':proxy,'https':proxy}
+    return {}
+
+def send_text_to_chat(chat_id:str|int, text:str, reply_markup:str|None = None):
+    """Send a Markdown message to an arbitrary chat (bot DMs to followers)."""
+    token = app_settings.telegram_bot_token
+    proxies = _proxies()
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     data = {
-        "chat_id": chat_id, 
+        "chat_id": chat_id,
         "text": text,
         "parse_mode": "Markdown"
     }
+    if reply_markup is not None:
+        data["reply_markup"] = reply_markup
     res = requests.post(
-        url, 
+        url,
         data=data,
         proxies=proxies
     )
     return res.status_code,res.json()
 
+def send_text_to_telegram(text):
+    return send_text_to_chat(app_settings.telegram_chat_id, text)
+
 def send_image_to_telegram(text:str,photo:str|bytes):
     token = app_settings.telegram_bot_token
     chat_id = app_settings.telegram_chat_id
-    proxy = app_settings.tg_gpt_ig_proxy
-
-    # TODO: Better check for proxy
-    if 'http' in proxy :
-        proxies = {'http':proxy,'https':proxy}
-    else:
-        proxies = {}
+    proxies = _proxies()
     url = f"https://api.telegram.org/bot{token}/sendPhoto"
     data = {
         "chat_id": chat_id, 

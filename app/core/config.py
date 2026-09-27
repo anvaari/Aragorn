@@ -45,5 +45,14 @@ class Settings(BaseSettings):
         alias="digest_schedules",
     )
 
+    # Interactive bot (long polling). Only ONE process may poll per token;
+    # set false on secondary/dev instances.
+    bot_enabled: bool = Field(default=True, alias="bot_enabled")
+
+    # Artist identity enrichment via LLM + web search (Responses API).
+    # openai_artist_model empty -> falls back to openai_text_model.
+    artist_enrichment_enabled: bool = Field(default=True, alias="artist_enrichment_enabled")
+    openai_artist_model: str = Field(default="", alias="openai_artist_model")
+
 app_settings = Settings() # type: ignore
 

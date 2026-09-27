@@ -7,7 +7,16 @@ from jdatetime import date as jdate
 
 logger = get_app_logger(__name__)
 
-def extract_event_from_ig_text(ig_text:str) -> EventCreate:
+def performer_names(event_dict: dict) -> list[str]:
+    """Extract a clean list of performer names; falls back to comma-splitting the string."""
+    performers = event_dict.get("performers") or []
+    if isinstance(performers, str):
+        performers = performers.split(",")
+    names = [name.strip() for name in performers if isinstance(name, str) and name.strip()]
+    event_dict["performers"] = ", ".join(names)  # EventCreate.performers stays a display string
+    return names
+
+def extract_event_from_ig_text(ig_text:str) -> tuple[EventCreate, list[str]]:
     client = get_openai_client()
     response = client.chat.completions.create(
         model=app_settings.openai_text_model,
@@ -105,11 +114,12 @@ Type: string
 
 ### performers
 
-Return the performers as a comma-separated string.
+Return the performers as a JSON array of strings.
 
 Rules:
 
 * Include singers, musicians, bands, DJs, ensembles, or other explicitly identified performers.
+* Each array element is ONE performer name.
 * If an instrument is explicitly associated with a performer, use:
   `Name (Instrument)`
 * If an instrument is not explicitly stated, use only:
@@ -118,11 +128,12 @@ Rules:
 * Do not invent instruments.
 * Do not include organizers, sponsors, presenters, photographers, venue staff, or ticket sellers as performers unless the text explicitly identifies them as performers.
 * Preserve multiple performers in the order they appear in the text.
+* If there are no performers, return an empty array `[]`.
 
 Example:
-`Ali X (Guitar), Sara Y (Vocals), ABC Band`
+`["Ali X (Guitar)", "Sara Y (Vocals)", "ABC Band"]`
 
-Type: string
+Type: array of strings
 
 ### ticket_info
 
@@ -208,7 +219,7 @@ The JSON must contain exactly these fields:
 "date": "",
 "time": "",
 "location": "",
-"performers": "",
+"performers": [],
 "ticket_info": "",
 "instagram_link": "",
 "description": ""
@@ -233,10 +244,12 @@ The JSON must contain exactly these fields:
         logger.critical(f"Can't decode output of gpt into json.\ngpt_output: {gpt_output}",exc_info=True)
         raise ValueError(f"Can't decode output of gpt into json.\ngpt_output: {gpt_output}")
     
+    names = performer_names(event_dict)
+
     try:
         event = EventCreate(**event_dict)
     except:
         logger.critical(f"Can't make event out of gpt output dict.\ngpt output dict:{event_dict}",exc_info=True)
         raise ValueError(f"Can't make event out of gpt output dict.\ngpt output dict:{event_dict}")
 
-    return event
+    return event, names

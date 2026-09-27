@@ -1,5 +1,6 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from core.config import app_settings
 from log.logger import get_app_logger
@@ -15,6 +16,20 @@ def _run_digest(day_offset: int) -> None:
         send_events_digest(day_offset)
     except Exception:
         logger.error(f"Digest job failed (day_offset={day_offset})",exc_info=True)
+
+def _run_reminder_tick() -> None:
+    try:
+        from telegram_bot.notifier import send_due_reminders
+        send_due_reminders()
+    except Exception:
+        logger.error("Reminder tick failed",exc_info=True)
+
+def _run_artist_enrichment() -> None:
+    try:
+        from services.artist_service import enrich_pending_artists
+        enrich_pending_artists()
+    except Exception:
+        logger.error("Artist enrichment sweep failed",exc_info=True)
 
 def build_digest_scheduler() -> BackgroundScheduler | None:
     if not app_settings.digest_enabled:
@@ -50,6 +65,32 @@ def start_digest_scheduler() -> BackgroundScheduler | None:
         logger.info(f"Digest scheduler started with {len(scheduler.get_jobs())} job(s)")
     return scheduler
 
-def shutdown_digest_scheduler(scheduler: BackgroundScheduler | None) -> None:
+def start_bot_scheduler() -> BackgroundScheduler:
+    """Reminder tick (every 10 min) + artist enrichment sweep (every 30 min)."""
+    scheduler = BackgroundScheduler(timezone=app_settings.digest_timezone)
+    scheduler.add_job(
+        _run_reminder_tick,
+        trigger=IntervalTrigger(minutes=10),
+        id="bot-reminder-tick",
+        name="bot due-reminder tick",
+        misfire_grace_time=_MISFIRE_GRACE_SECONDS,
+        coalesce=True,
+        replace_existing=True,
+    )
+    if app_settings.artist_enrichment_enabled:
+        scheduler.add_job(
+            _run_artist_enrichment,
+            trigger=IntervalTrigger(minutes=30),
+            id="artist-enrichment-sweep",
+            name="artist enrichment sweep",
+            misfire_grace_time=_MISFIRE_GRACE_SECONDS,
+            coalesce=True,
+            replace_existing=True,
+        )
+    scheduler.start()
+    logger.info(f"Bot scheduler started with {len(scheduler.get_jobs())} job(s)")
+    return scheduler
+
+def shutdown_scheduler(scheduler: BackgroundScheduler | None) -> None:
     if scheduler is not None and scheduler.running:
         scheduler.shutdown(wait=False)
