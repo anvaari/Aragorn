@@ -1,4 +1,6 @@
 import json
+import difflib
+from datetime import timedelta
 from open_ai.gpt import get_openai_client
 from core.config import app_settings
 from models.event import EventCreate
@@ -6,6 +8,32 @@ from log.logger import get_app_logger
 from jdatetime import date as jdate
 
 logger = get_app_logger(__name__)
+
+# jdatetime weekday numbers: Saturday=0 ... Friday=6
+_WEEKDAY_NUMBERS = {
+    "شنبه": 0,
+    "یکشنبه": 1,
+    "دوشنبه": 2,
+    "سهشنبه": 3,
+    "چهارشنبه": 4,
+    "پنجشنبه": 5,
+    "جمعه": 6,
+}
+
+def _resolve_weekday_date(value:str) -> str:
+    """Replace a bare Persian weekday name in the date field with the Shamsi
+    date of its next occurrence (today counts as a match). Fuzzy matching
+    absorbs OCR errors like چهارشنیه, Arabic ي/ك, and spaced forms like
+    "پنج شنبه". Values that don't look like a weekday are returned unchanged.
+    """
+    if not value or any(ch.isdigit() for ch in value):
+        return value
+    token = value.replace("ي", "ی").replace("ك", "ک").replace("‌", "").replace(" ", "").strip()
+    match = difflib.get_close_matches(token, _WEEKDAY_NUMBERS.keys(), n=1, cutoff=0.7)
+    if not match:
+        return value
+    days_ahead = (_WEEKDAY_NUMBERS[match[0]] - jdate.today().weekday()) % 7
+    return (jdate.today() + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
 
 def extract_event_from_ig_text(ig_text:str) -> EventCreate:
     client = get_openai_client()
@@ -60,6 +88,7 @@ Rules:
 * If the year is not explicitly mentioned, use `{jdate.today().year}`.
 * If the month is not explicitly mentioned but can be determined from the surrounding date information, use that month.
 * If the month is genuinely missing, use `{jdate.today().month}`.
+* If the day of the month is missing but a Persian weekday name (e.g. شنبه, چهارشنبه) is the only date clue in the text, return that weekday name in Persian as the value of `date` (for example `"چهارشنبه"`). Do NOT try to convert it to a calendar date yourself.
 * Convert Persian and Arabic digits to Western digits.
 * If the text contains multiple event dates, select ONE date according to these rules:
 
@@ -232,7 +261,9 @@ The JSON must contain exactly these fields:
         # TODO: Better error handling
         logger.critical(f"Can't decode output of gpt into json.\ngpt_output: {gpt_output}",exc_info=True)
         raise ValueError(f"Can't decode output of gpt into json.\ngpt_output: {gpt_output}")
-    
+
+    event_dict["date"] = _resolve_weekday_date(event_dict.get("date", ""))
+
     try:
         event = EventCreate(**event_dict)
     except:
