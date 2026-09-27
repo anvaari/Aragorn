@@ -56,8 +56,10 @@ def format_event_for_telegram(event:EventCreate) -> str:
 def _title_line(event: EventCreate, link: str | None) -> str:
     title = _escape_md(event.title)
     if link:
+        # Legacy Markdown (V1) cannot nest entities: bold around [text](url)
+        # renders the raw brackets instead of a link -> no bold on linked titles.
         link_text = re.sub(r"[\[\]()]", "", title)  # legacy-Markdown [] delimiter safety
-        return f"🎤 *[{link_text}]({link})*\n"
+        return f"🎤 [{link_text}]({link})\n"
     return f"🎤 *{title}*\n"
 
 def format_events_digest(events: list[EventCreate], day_label: str,
