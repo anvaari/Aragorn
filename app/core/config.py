@@ -45,5 +45,9 @@ class Settings(BaseSettings):
         alias="digest_schedules",
     )
 
+    # Public @username of the Aragorn Telegram channel, WITHOUT the leading @.
+    # Empty -> digest titles render as plain text (no t.me links).
+    telegram_channel_username: str = Field(default="", alias="telegram_channel_username")
+
 app_settings = Settings() # type: ignore
 

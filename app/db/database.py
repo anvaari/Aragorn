@@ -33,12 +33,20 @@ def create_table(conn: sqlite3.Connection) -> None:
         ticket_info TEXT,
         instagram_link TEXT,
         google_calendar_link TEXT,
-        created_at TEXT
+        created_at TEXT,
+        tg_message_id INTEGER
     )
     """
     try:
         cur = conn.cursor()
         cur.execute(events_ddl)
+        existing_cols = {r[1] for r in cur.execute("PRAGMA table_info(events)").fetchall()}
+        if "tg_message_id" not in existing_cols:
+            try:
+                cur.execute("ALTER TABLE events ADD COLUMN tg_message_id INTEGER")
+            except sqlite3.OperationalError as e:
+                if "duplicate column" not in str(e).lower():  # a concurrent process may win the ALTER race
+                    raise
     except Exception as e:
         logger.critical("Can't create event table on database",exc_info=True)
         raise e

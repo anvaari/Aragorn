@@ -8,12 +8,13 @@ logger = get_app_logger(__name__)
 _EVENT_COLUMNS = ("title", "datetime", "description", "location",
                   "performers", "ticket_info", "instagram_link")
 
-def insert_event(event:EventCreate) -> bool :
+def insert_event(event:EventCreate, tg_message_id: int | None = None) -> bool :
     event_dict = event.model_dump()
     del event_dict['date']
     del event_dict['time']
     event_dict['datetime'] = event.datetime
     event_dict['google_calendar_link'] = event.google_calendar_link
+    event_dict['tg_message_id'] = tg_message_id  # None -> NULL (same as pre-feature rows)
     event_dict['created_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     columns = ", ".join(event_dict.keys())
     placeholders = ", ".join("?" for _ in event_dict)
@@ -48,17 +49,24 @@ def _row_to_event(row: dict) -> EventCreate:
         instagram_link=row.get("instagram_link") or "",
     )
 
-def get_events_by_jdate(jdate: str) -> list[EventCreate]:
-    columns = ", ".join(_EVENT_COLUMNS)
-    query = f"SELECT {columns} FROM events WHERE datetime LIKE ? ORDER BY datetime"
+def _select_event_rows(where: str, params: tuple, *, with_tg_message_id: bool = False) -> list[dict]:
+    columns = ", ".join(_EVENT_COLUMNS + (("tg_message_id",) if with_tg_message_id else ()))
+    query = f"SELECT {columns} FROM events WHERE {where} ORDER BY datetime"
     conn = initialize_db()
     try:
         cur = conn.cursor()
-        cur.execute(query, (f"{jdate}%",))
+        cur.execute(query, params)
         rows = [dict(zip([d[0] for d in cur.description], r)) for r in cur.fetchall()]
     except Exception:
-        logger.error(f"Can't fetch events for jdate={jdate}",exc_info=True)
+        logger.error(f"Can't fetch events (where={where})",exc_info=True)
         rows = []
     finally:
         conn.close()
-    return [_row_to_event(r) for r in rows]
+    return rows
+
+def get_events_by_jdate(jdate: str) -> list[EventCreate]:
+    return [_row_to_event(r) for r in _select_event_rows("datetime LIKE ?", (f"{jdate}%",))]
+
+def get_events_by_jdate_with_tg_message_ids(jdate: str) -> list[tuple[int | None, EventCreate]]:
+    rows = _select_event_rows("datetime LIKE ?", (f"{jdate}%",), with_tg_message_id=True)
+    return [(r.get("tg_message_id"), _row_to_event(r)) for r in rows]
