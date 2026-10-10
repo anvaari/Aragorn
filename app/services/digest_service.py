@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 import jdatetime
 
 from core.config import app_settings
-from db.crud_event import get_events_by_jdate
+from db.crud_event import get_events_by_jdate_with_tg_message_ids
 from log.logger import get_app_logger
 from telegram.bot import send_text_to_telegram
 from telegram.event_formatter import format_events_digest
@@ -22,18 +22,26 @@ def _target_jdate(day_offset: int) -> tuple[str, str]:
     weekday_fa = jdatetime.date.j_weekdays_fa[jd.isoweekday() - 1]
     return jdate, weekday_fa
 
+def _post_link(tg_message_id: int | None) -> str | None:
+    username = (app_settings.telegram_channel_username or "").strip().lstrip("@")
+    if not username or not tg_message_id:
+        return None
+    return f"https://t.me/{username}/{tg_message_id}"
+
 def send_events_digest(day_offset: int) -> dict:
     jdate, weekday_fa = _target_jdate(day_offset)
     label = _DAY_LABELS.get(day_offset, f"{day_offset} روز دیگر")
     day_label = f"{label} — {weekday_fa} {jdate}"
 
-    events = get_events_by_jdate(jdate)
-    if not events:
+    rows = get_events_by_jdate_with_tg_message_ids(jdate)
+    if not rows:
         logger.info(f"Digest {jdate} (day_offset={day_offset}): no events, staying silent")
         return {"sent": False, "reason": "no_events", "events": 0,
                 "jdate": jdate, "day_offset": day_offset}
 
-    digest_text = format_events_digest(events, day_label)
+    events = [event for _, event in rows]
+    post_links = [_post_link(mid) for mid, _ in rows]
+    digest_text = format_events_digest(events, day_label, post_links)
     status, res = send_text_to_telegram(digest_text)
     if status != 200:
         logger.error(f"Digest {jdate}: telegram send failed status={status} res={res}",exc_info=True)

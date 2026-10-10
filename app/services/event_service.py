@@ -28,17 +28,24 @@ def _post_store_pipeline(event_id: int | None, event:EventCreate, performer_name
     except Exception:
         logger.error(f"Follower notification failed for event_id={event_id}",exc_info=True)
 
+def _extract_message_id(status: int, res: object) -> int | None:
+    # Telegram returns 200 with ok:false on Markdown parse errors -> gate on both.
+    if status != 200 or not isinstance(res, dict) or not res.get("ok"):
+        return None
+    message_id = (res.get("result") or {}).get("message_id")
+    return message_id if isinstance(message_id, int) else None
+
 def post_manual_event_on_telegram(event:EventCreate) -> dict:
     telegram_msg = format_event_for_telegram(event)
     status,res = send_text_to_telegram(telegram_msg)
-    event_id = insert_event(event)
+    event_id = insert_event(event, _extract_message_id(status, res))
     _post_store_pipeline(event_id, event, event.performers.split(","))
     return {"status":status,"tg_response":res}
 
 def post_event_with_image_on_telegram(event:EventCreate,photo_url,performer_names:list[str] | None = None) -> dict:
     telegram_msg = format_event_for_telegram(event)
     status,res = send_image_to_telegram(telegram_msg,photo_url)
-    event_id = insert_event(event)
+    event_id = insert_event(event, _extract_message_id(status, res))
     _post_store_pipeline(event_id, event, performer_names or event.performers.split(","))
     return {"status":status,"tg_response":res}
 

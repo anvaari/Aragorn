@@ -45,6 +45,10 @@ class Settings(BaseSettings):
         alias="digest_schedules",
     )
 
+    # Public @username of the Aragorn Telegram channel, WITHOUT the leading @.
+    # Empty -> digest titles render as plain text (no t.me links).
+    telegram_channel_username: str = Field(default="", alias="telegram_channel_username")
+
     # Interactive bot (long polling). Only ONE process may poll per token;
     # set false on secondary/dev instances.
     bot_enabled: bool = Field(default=True, alias="bot_enabled")

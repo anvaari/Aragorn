@@ -33,7 +33,8 @@ def create_table(conn: sqlite3.Connection) -> None:
         ticket_info TEXT,
         instagram_link TEXT,
         google_calendar_link TEXT,
-        created_at TEXT
+        created_at TEXT,
+        tg_message_id INTEGER
     )
     """
     bot_ddls = [
@@ -96,6 +97,13 @@ def create_table(conn: sqlite3.Connection) -> None:
         # Legacy tables declared "id int primary key" (not a rowid alias) left ids
         # NULL on every row; backfill from rowid so bot references work.
         cur.execute("UPDATE events SET id = rowid WHERE id IS NULL")
+        existing_cols = {r[1] for r in cur.execute("PRAGMA table_info(events)").fetchall()}
+        if "tg_message_id" not in existing_cols:
+            try:
+                cur.execute("ALTER TABLE events ADD COLUMN tg_message_id INTEGER")
+            except sqlite3.OperationalError as e:
+                if "duplicate column" not in str(e).lower():  # a concurrent process may win the ALTER race
+                    raise
         for bot_ddl in bot_ddls:
             cur.execute(bot_ddl)
     except Exception as e:
