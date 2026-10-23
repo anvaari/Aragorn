@@ -88,7 +88,8 @@ def notify_admin_proposals(pending_count: int) -> bool:
             "جداگانه‌ای ذخیره می‌کند._")
     markup = normalization_notify_keyboard()
     try:
-        status, _ = send_text_to_chat(chat_id, text, markup.model_dump_json())
+        # exclude_none: Bot API rejects the null-filled JSON model_dump emits
+        status, _ = send_text_to_chat(chat_id, text, markup.model_dump_json(exclude_none=True))
     except Exception:
         logger.error(f"Can't notify admin (chat_id={chat_id}) about proposals",exc_info=True)
         return False

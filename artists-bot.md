@@ -187,6 +187,7 @@ artist by typing its English name and vice versa.
 | Command | Purpose |
 |---|---|
 | `backfill-summaries [--batch-size 50]` | loop `refresh_artist_summaries` until no stale artist remains |
+| `backfill-artists` | rebuild `artists` + `event_artists` from every event's `performers` string (idempotent — for DBs restored/created before linking existed) |
 | `normalize-artists [--limit N] [--apply]` | propose Persian→English names (default) or write directly (`--apply`); always notifies the admin in Telegram unless `--apply` |
 | `proposals [--status pending] [--limit 20]` | list the review queue |
 

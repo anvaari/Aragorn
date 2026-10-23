@@ -27,6 +27,28 @@ def backfill_summaries(batch_size: int = typer.Option(
     typer.echo(f"Done: {total_updated} summaries refreshed.")
 
 
+@app.command("backfill-artists")
+def backfill_artists():
+    """Find-or-create artists + event_artists links from every event's performers.
+
+    Idempotent — for databases created/restored before artist linking existed.
+    """
+    from db.database import initialize_db
+    from services.artist_service import link_event_artists
+
+    conn = initialize_db()
+    try:
+        rows = conn.execute(
+            "SELECT id, performers FROM events "
+            "WHERE performers IS NOT NULL AND performers != ''"
+        ).fetchall()
+    finally:
+        conn.close()
+    for event_id, performers in rows:
+        link_event_artists(event_id, [p.strip() for p in performers.split(",") if p.strip()])
+    typer.echo(f"Processed {len(rows)} events with performers.")
+
+
 @app.command("normalize-artists")
 def normalize_artists(
     limit: int = typer.Option(100, "--limit", help="Max artists to process."),
