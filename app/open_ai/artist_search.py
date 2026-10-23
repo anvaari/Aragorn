@@ -9,6 +9,98 @@ logger = get_app_logger(__name__)
 def _artist_model() -> str:
     return app_settings.openai_artist_model or app_settings.openai_text_model
 
+def summarize_artist(name: str, event_lines: list[str], co_performers: list[str]) -> str | None:
+    """Persian summary of the artist's event history: event types, instruments,
+    and frequent co-performers. Derived ONLY from the supplied local data."""
+    client = get_openai_client()
+    events_block = "\n".join(event_lines)
+    co_block = "، ".join(co_performers) if co_performers else ""
+    prompt = f"""
+Based ONLY on the following recorded events of the music artist "{name}", write a
+short summary in Persian (۲-۳ جمله) about:
+- the type of events/concerts they usually participate in,
+- the instruments or role they play (if inferable),
+- the artists they often perform with.
+
+Events (title | date | location | performers):
+{events_block}
+{"Known co-performers: " + co_block if co_block else ""}
+
+Rules:
+
+* Use only the information above; do not invent or add outside knowledge.
+* Natural, friendly Persian prose (no markdown, no bullet lists, no headings).
+* If the events are too few to say anything meaningful, still write one short sentence.
+Return ONLY the summary text.
+"""
+    try:
+        response = client.chat.completions.create(
+            model=_artist_model(),
+            messages=[{"role": "user", "content": prompt}],
+        )
+    except Exception:
+        logger.error(f"Artist summary call failed for name={name!r}",exc_info=True)
+        return None
+    summary = (response.choices[0].message.content or "").strip()
+    if not summary:
+        logger.warning(f"Artist summary returned empty output for name={name!r}")
+        return None
+    return summary
+
+def normalize_artist_names(names: list[str]) -> dict[str, str] | None:
+    """Map each performer name to its Latin (English) spelling: the official
+    spelling when the artist is known, else a faithful transliteration.
+    Empty value = not a plausible artist/performer name (OCR noise etc.).
+    One chat completion for the whole chunk; None when the call failed."""
+
+    if not names:
+        return {}
+    client = get_openai_client()
+    listing = "\n".join(f"{i + 1}. {name}" for i, name in enumerate(names))
+    prompt = f"""
+Below is a numbered list of performer names taken from Persian independent-music
+event posters. They may be in Persian script or garbled OCR text.
+
+For EACH name return its Latin (English) spelling:
+* the spelling the artist is officially known by, if you recognize the artist;
+* otherwise a faithful transliteration of the Persian name;
+* an EMPTY string "" if the text is not a plausible performer or band name
+  (instrument words, parenthesized fragments, venue names, dates, noise).
+
+Return ONLY a JSON object mapping the list number (as a string) to the result, e.g.
+{{"1": "Mohammad Reza", "2": "", "3": "Sun Spots Band"}}
+
+Names:
+{listing}
+"""
+    try:
+        response = client.chat.completions.create(
+            model=_artist_model(),
+            messages=[{"role": "user", "content": prompt}],
+        )
+    except Exception:
+        logger.error(f"Artist name normalization call failed for {len(names)} names",exc_info=True)
+        return None
+    raw = (response.choices[0].message.content or "").strip()
+    if not raw:
+        logger.warning("Artist name normalization returned empty output")
+        return None
+    try:
+        text = raw
+        if text.startswith("```"):
+            text = text.strip("`")
+            if text.startswith("json"):
+                text = text[4:]
+        numbered = json.loads(text)
+    except Exception:
+        logger.error(f"Can't decode normalization output.\noutput: {raw}",exc_info=True)
+        return None
+    result: dict[str, str] = {}
+    for i, name in enumerate(names):
+        value = numbered.get(str(i + 1)) or numbered.get(name) or ""
+        result[name] = str(value).strip()
+    return result
+
 def search_artist_web(name: str) -> dict | None:
     """Resolve a performer name to a canonical identity via LLM + web search.
 

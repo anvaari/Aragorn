@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
@@ -30,6 +32,24 @@ def _run_artist_enrichment() -> None:
         enrich_pending_artists()
     except Exception:
         logger.error("Artist enrichment sweep failed",exc_info=True)
+
+def _run_artist_summary_refresh() -> None:
+    try:
+        from services.artist_service import refresh_artist_summaries
+        refresh_artist_summaries()
+    except Exception:
+        logger.error("Artist summary refresh failed",exc_info=True)
+
+_DAILY_NORMALIZATION_LIMIT = 50  # bulk backfill goes through the CLI
+
+def _run_normalization_propose() -> None:
+    try:
+        from services.normalization_service import notify_admin_proposals, propose_normalizations
+        result = propose_normalizations(limit=_DAILY_NORMALIZATION_LIMIT)
+        if result["proposed"]:
+            notify_admin_proposals(result["proposed"])
+    except Exception:
+        logger.error("Artist normalization proposal job failed",exc_info=True)
 
 def build_digest_scheduler() -> BackgroundScheduler | None:
     if not app_settings.digest_enabled:
@@ -66,7 +86,7 @@ def start_digest_scheduler() -> BackgroundScheduler | None:
     return scheduler
 
 def start_bot_scheduler() -> BackgroundScheduler:
-    """Reminder tick (every 10 min) + artist enrichment sweep (every 30 min)."""
+    """Reminder tick (10 min) + artist enrichment sweep (30 min) + daily summary refresh."""
     scheduler = BackgroundScheduler(timezone=app_settings.digest_timezone)
     scheduler.add_job(
         _run_reminder_tick,
@@ -83,6 +103,26 @@ def start_bot_scheduler() -> BackgroundScheduler:
             trigger=IntervalTrigger(minutes=30),
             id="artist-enrichment-sweep",
             name="artist enrichment sweep",
+            misfire_grace_time=_MISFIRE_GRACE_SECONDS,
+            coalesce=True,
+            replace_existing=True,
+        )
+        scheduler.add_job(
+            _run_artist_summary_refresh,
+            trigger=IntervalTrigger(hours=24),
+            next_run_time=datetime.now(),  # first pass at startup; no-op when nothing changed
+            id="artist-summary-refresh",
+            name="artist summary daily refresh",
+            misfire_grace_time=_MISFIRE_GRACE_SECONDS,
+            coalesce=True,
+            replace_existing=True,
+        )
+        scheduler.add_job(
+            _run_normalization_propose,
+            trigger=IntervalTrigger(hours=24),
+            next_run_time=datetime.now(),  # only proposes for not-yet-proposed artists
+            id="artist-normalization-propose",
+            name="artist normalization daily proposals",
             misfire_grace_time=_MISFIRE_GRACE_SECONDS,
             coalesce=True,
             replace_existing=True,

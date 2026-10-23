@@ -6,10 +6,9 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from db import crud_bot
-from db.crud_artist import get_artist, get_events_for_artist, search_artists
-from db.crud_event import get_events_like_performer_with_ids
+from db.crud_artist import get_artist, get_events_for_artist, get_related_artists, search_artists
 from log.logger import get_app_logger
-from telegram_bot.callbacks import (ArtistCB, EventCB, FollowCB, FollowPrefCB,
+from telegram_bot.callbacks import (ArtistCB, FollowCB, FollowPrefCB,
                                     MenuCB, UnfollowCB)
 from telegram_bot.cards import _escape_md, format_artist_card
 from telegram_bot.handlers.common import safe_edit
@@ -21,8 +20,8 @@ logger = get_app_logger(__name__)
 router = Router()
 
 _MAX_ARTIST_BUTTONS = 8
-_MAX_EVENT_MATCHES = 6
 _MAX_PAST_SHOWN = 5
+_MAX_RELATED_BUTTONS = 6
 
 ASK_ARTIST_TEXT = "🎤 *نام هنرمند را بنویسید:*\n\n_مثلاً: Sun Spots Band_"
 NOT_FOUND_TEXT = "_هنرمندی با این نام پیدا نشد._\nممکن است هنوز رویدادی از این هنرمند ثبت نشده باشد."
@@ -54,7 +53,6 @@ async def artist_search(message: Message, state: FSMContext) -> None:
         return
 
     artist_rows = search_artists(query)
-    event_matches = get_events_like_performer_with_ids(query)
 
     keyboard = InlineKeyboardBuilder()
     lines = [f"🎤 *نتایج جستجو برای «{_escape_md(query)}»:*"]
@@ -65,15 +63,7 @@ async def artist_search(message: Message, state: FSMContext) -> None:
                 text=f"🎤 {artist['name']}",
                 callback_data=ArtistCB(artist_id=artist["id"]).pack(),
             ))
-    if event_matches:
-        lines.append("")
-        lines.append("🗓 *رویدادهای مرتبط:*")
-        for event_id, event in event_matches[:_MAX_EVENT_MATCHES]:
-            keyboard.row(InlineKeyboardButton(
-                text=f"🗓 {(event.title or 'بدون عنوان')[:40]}",
-                callback_data=EventCB(event_id=event_id).pack(),
-            ))
-    if not artist_rows and not event_matches:
+    else:
         lines.append("")
         lines.append(NOT_FOUND_TEXT)
     keyboard.row(InlineKeyboardButton(
@@ -100,22 +90,29 @@ def _split_events(events: list[tuple[int, object]]) -> tuple[list, list, list]:
     return upcoming, past, unknown
 
 
-@router.callback_query(ArtistCB.filter())
-async def show_artist(callback: CallbackQuery, callback_data: ArtistCB) -> None:
-    artist = get_artist(callback_data.artist_id)
+async def _render_artist_page(callback: CallbackQuery, artist_id: int) -> bool:
+    """(Re)draw the artist page: info, performances, related artists, follow state."""
+    artist = get_artist(artist_id)
     if not artist:
         await callback.answer("🤔 هنرمند مورد نظر پیدا نشد.", show_alert=True)
-        return
-    events = get_events_for_artist(callback_data.artist_id)
-    upcoming, past, unknown = _split_events(events)
-    follow = crud_bot.get_follow(callback.from_user.id, callback_data.artist_id)
-    text = format_artist_card(artist, upcoming, past, unknown)
+        return False
+    upcoming, past, unknown = _split_events(get_events_for_artist(artist_id))
+    related = get_related_artists(artist_id)
+    follow = crud_bot.get_follow(callback.from_user.id, artist_id)
     await safe_edit(
-        callback, text,
-        artist_card_keyboard(callback_data.artist_id,
+        callback,
+        format_artist_card(artist, upcoming, past, unknown, related),
+        artist_card_keyboard(artist_id,
                              is_following=follow is not None,
-                             follow_id=follow["id"] if follow else None))
-    await callback.answer()
+                             follow_id=follow["id"] if follow else None,
+                             related=related[:_MAX_RELATED_BUTTONS]))
+    return True
+
+
+@router.callback_query(ArtistCB.filter())
+async def show_artist(callback: CallbackQuery, callback_data: ArtistCB) -> None:
+    if await _render_artist_page(callback, callback_data.artist_id):
+        await callback.answer()
 
 
 @router.callback_query(FollowCB.filter())
@@ -138,16 +135,8 @@ async def save_follow(callback: CallbackQuery, callback_data: FollowPrefCB) -> N
     notify_new, notify_pre = _FOLLOW_MODES.get(callback_data.mode, (True, False))
     crud_bot.upsert_artist_follow(callback.from_user.id, callback_data.artist_id,
                                   notify_new=notify_new, notify_pre=notify_pre)
-    await safe_edit(callback, format_artist_card(
-        artist, *_split_events(get_events_for_artist(callback_data.artist_id))),
-        artist_card_keyboard(callback_data.artist_id, is_following=True,
-                             follow_id=_follow_id(callback.from_user.id, callback_data.artist_id)))
+    await _render_artist_page(callback, callback_data.artist_id)
     await callback.answer("✅ ثبت شد!")
-
-
-def _follow_id(chat_id: int, artist_id: int) -> int | None:
-    follow = crud_bot.get_follow(chat_id, artist_id)
-    return follow["id"] if follow else None
 
 
 @router.callback_query(UnfollowCB.filter())

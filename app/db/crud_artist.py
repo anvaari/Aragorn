@@ -13,7 +13,14 @@ def normalize_name(name: str) -> str:
     """Normalize for identity matching: strip ZWNJ, collapse whitespace, casefold Latin."""
     return " ".join(name.replace(_ZWNJ, " ").split()).casefold()
 
-_ARTIST_SELECT = "SELECT id, name, name_en, ig_handle, bio, resolved, source_url, attempts FROM artists"
+_ARTIST_SELECT = ("SELECT id, name, normalized_name, name_en, ig_handle, bio, resolved, source_url, "
+                  "attempts, summary, summary_event_count FROM artists")
+
+_PERSIAN_RANGE = ("؀", "ۿ")
+
+def _has_persian_chars(text: str) -> bool:
+    lo, hi = _PERSIAN_RANGE
+    return any(lo <= ch <= hi for ch in text)
 
 def _row_to_dict(cur, row) -> dict:
     names = [d[0] for d in cur.description]
@@ -37,18 +44,53 @@ def find_artist_by_normalized_name(normalized: str) -> int | None:
     conn = initialize_db()
     try:
         cur = conn.cursor()
-        cur.execute("SELECT id, name, name_en, ig_handle FROM artists")
+        cur.execute("SELECT id, name, name_en, ig_handle, normalized_name FROM artists")
         rows = cur.fetchall()
     except Exception:
         logger.error("Can't fetch artists for normalized lookup",exc_info=True)
         rows = []
     finally:
         conn.close()
-    for artist_id, name, name_en, ig_handle in rows:
-        for candidate in (name, name_en, ig_handle):
+    for artist_id, name, name_en, ig_handle, normalized_name in rows:
+        for candidate in (name, name_en, ig_handle, normalized_name):
             if candidate and normalize_name(candidate) == normalized:
                 return artist_id
     return None
+
+
+def get_artists_missing_normalized_name(limit: int) -> list[dict]:
+    """Persian-script artists without an approved normalized_name and without a
+    pending proposal. Persian filtering happens here (SQLite LIKE can't match
+    unicode ranges); over-fetches to survive non-Persian rows."""
+    rows = _query(
+        """
+        SELECT a.id, a.name FROM artists a
+        WHERE a.normalized_name IS NULL
+          AND NOT EXISTS (SELECT 1 FROM artist_name_proposals p
+                          WHERE p.artist_id = a.id AND p.status = 'pending')
+        ORDER BY a.id
+        LIMIT ?
+        """,
+        (limit * 5,),
+    )
+    persian = [row for row in rows if _has_persian_chars(row["name"] or "")]
+    return persian[:limit]
+
+
+def set_normalized_name(artist_id: int, normalized_name: str) -> None:
+    """Store the approved English spelling; the original name is never touched."""
+    conn = initialize_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE artists SET normalized_name = ? WHERE id = ?",
+                    (normalized_name, artist_id))
+    except Exception:
+        logger.error(f"Can't set normalized_name for artist id={artist_id}",exc_info=True)
+        conn.rollback()
+    else:
+        conn.commit()
+    finally:
+        conn.close()
 
 def create_artist(raw_name: str) -> int | None:
     conn = initialize_db()
@@ -105,8 +147,9 @@ def get_artist_ids_for_event(event_id: int) -> list[int]:
 
 def search_artists(query: str, limit: int = 20) -> list[dict]:
     return _query(
-        f"{_ARTIST_SELECT} WHERE name LIKE ? OR name_en LIKE ? ORDER BY resolved DESC, id DESC LIMIT ?",
-        (f"%{query}%", f"%{query}%", limit),
+        f"{_ARTIST_SELECT} WHERE name LIKE ? OR name_en LIKE ? OR normalized_name LIKE ? "
+        "ORDER BY resolved DESC, id DESC LIMIT ?",
+        (f"%{query}%", f"%{query}%", f"%{query}%", limit),
     )
 
 def get_events_for_artist(artist_id: int) -> list[tuple[int, EventCreate]]:
@@ -139,6 +182,68 @@ def get_events_for_artist(artist_id: int) -> list[tuple[int, EventCreate]]:
     finally:
         conn.close()
     return [(row.pop("id"), _row_to_event(row)) for row in rows]
+
+def get_related_artists(artist_id: int, limit: int = 12) -> list[dict]:
+    """Artists who shared a stage with this one: linked co-performers first,
+    plus names parsed from the artist's raw performers strings (covers legacy
+    events without event_artists links). Deduped by artist id."""
+    rows = _query(
+        """
+        SELECT DISTINCT a.id, a.name, a.resolved
+        FROM event_artists me
+        JOIN event_artists other
+          ON other.event_id = me.event_id AND other.artist_id != me.artist_id
+        JOIN artists a ON a.id = other.artist_id
+        WHERE me.artist_id = ?
+        ORDER BY a.name
+        """,
+        (artist_id,),
+    )
+    related = {row["id"]: row for row in rows}
+
+    if get_artist(artist_id):
+        by_normalized: dict[str, dict] = {}
+        for row in _query(_ARTIST_SELECT, ()):  # small table; resolve in memory
+            for candidate in (row["name"], row["normalized_name"], row["name_en"], row["ig_handle"]):
+                if candidate:
+                    by_normalized.setdefault(normalize_name(candidate), row)
+        for _, event in get_events_for_artist(artist_id):
+            for raw_name in (event.performers or "").split(","):
+                match = by_normalized.get(normalize_name(raw_name))
+                if match and match["id"] != artist_id:
+                    related.setdefault(match["id"], match)
+    return list(related.values())[:limit]
+
+def update_artist_summary(artist_id: int, summary: str, event_count: int) -> None:
+    conn = initialize_db()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE artists SET summary = ?, summary_event_count = ? WHERE id = ?",
+            (summary, event_count, artist_id),
+        )
+    except Exception:
+        logger.error(f"Can't update summary for artist id={artist_id}",exc_info=True)
+        conn.rollback()
+    else:
+        conn.commit()
+    finally:
+        conn.close()
+
+def get_artists_needing_summary(limit: int) -> list[dict]:
+    """Artists whose linked-event count differs from the count their summary was
+    built from (includes summary IS NULL, since that defaults to 0)."""
+    return _query(
+        """
+        SELECT a.id, a.name, a.summary_event_count, COUNT(DISTINCT ea.event_id) AS linked_count
+        FROM artists a JOIN event_artists ea ON ea.artist_id = a.id
+        GROUP BY a.id
+        HAVING linked_count != a.summary_event_count
+        ORDER BY linked_count DESC
+        LIMIT ?
+        """,
+        (limit,),
+    )
 
 def get_unresolved_artists(limit: int) -> list[dict]:
     return _query(

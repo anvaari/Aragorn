@@ -2,7 +2,8 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from telegram_bot.callbacks import (ArtistsOfCB, ArtistCB, DayCB, EventCB,
-                                    FollowCB, FollowPrefCB, MenuCB, RemindDelCB,
+                                    FollowCB, FollowPrefCB, MenuCB, NormBulkCB,
+                                    NormDecisionCB, NormPageCB, RemindDelCB,
                                     RemindHoursCB, RemindSetCB, UnfollowCB)
 from utils.event_time import jday_short_label
 
@@ -92,7 +93,8 @@ def event_artists_keyboard(event_id: int, artists: list[dict]) -> InlineKeyboard
 
 
 def artist_card_keyboard(artist_id: int, is_following: bool,
-                         follow_id: int | None = None) -> InlineKeyboardMarkup:
+                         follow_id: int | None = None,
+                         related: list[dict] | None = None) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     if is_following and follow_id is not None:
         builder.row(InlineKeyboardButton(
@@ -100,6 +102,15 @@ def artist_card_keyboard(artist_id: int, is_following: bool,
     elif not is_following:
         builder.row(InlineKeyboardButton(
             text="➕ دنبال کردن هنرمند", callback_data=FollowCB(artist_id=artist_id).pack()))
+    if related:
+        for i in range(0, len(related), 2):
+            builder.row(*[
+                InlineKeyboardButton(
+                    text=f"🎤 {_short(a['name'], 24)}",
+                    callback_data=ArtistCB(artist_id=a["id"]).pack(),
+                )
+                for a in related[i:i + 2]
+            ])
     builder.row(InlineKeyboardButton(
         text="🎤 جستجوی هنرمند", callback_data=MenuCB(action="artists").pack()))
     builder.row(InlineKeyboardButton(
@@ -137,4 +148,42 @@ def reminders_list_keyboard(reminders: list[dict], follows: list[dict]) -> Inlin
         ))
     builder.row(InlineKeyboardButton(
         text="🏠 منوی اصلی", callback_data=MenuCB(action="main").pack()))
+    return builder.as_markup()
+
+
+def normalization_notify_keyboard() -> InlineKeyboardMarkup:
+    """Entry-point button on the admin notification DM."""
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(
+        text="🔍 بررسی پیشنهادها", callback_data=NormPageCB(page=0).pack()))
+    return builder.as_markup()
+
+
+def normalization_review_keyboard(proposals: list[dict], page: int,
+                                  has_prev: bool, has_next: bool) -> InlineKeyboardMarkup:
+    """✅/❌ per proposal, then navigation and bulk-approve footer."""
+    builder = InlineKeyboardBuilder()
+    for proposal in proposals:
+        label = _short(proposal["current_name"], 20)
+        builder.row(
+            InlineKeyboardButton(
+                text=f"✅ {label}",
+                callback_data=NormDecisionCB(proposal_id=proposal["id"], approve=1, page=page).pack(),
+            ),
+            InlineKeyboardButton(
+                text="❌",
+                callback_data=NormDecisionCB(proposal_id=proposal["id"], approve=0, page=page).pack(),
+            ),
+        )
+    nav = []
+    if has_prev:
+        nav.append(InlineKeyboardButton(text="◀️ قبلی", callback_data=NormPageCB(page=page - 1).pack()))
+    if has_next:
+        nav.append(InlineKeyboardButton(text="بعدی ▶️", callback_data=NormPageCB(page=page + 1).pack()))
+    if nav:
+        builder.row(*nav)
+    builder.row(InlineKeyboardButton(
+        text="✅ تأیید همه‌ی صفحه", callback_data=NormBulkCB(scope="page", page=page).pack()))
+    builder.row(InlineKeyboardButton(
+        text="✅✅ تأیید همه", callback_data=NormBulkCB(scope="all", page=page).pack()))
     return builder.as_markup()

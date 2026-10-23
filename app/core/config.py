@@ -58,5 +58,9 @@ class Settings(BaseSettings):
     artist_enrichment_enabled: bool = Field(default=True, alias="artist_enrichment_enabled")
     openai_artist_model: str = Field(default="", alias="openai_artist_model")
 
+    # Personal (numeric) Telegram chat id of the admin — normalization proposals
+    # are sent here for approval. Empty -> approval notifications are skipped.
+    bot_admin_chat_id: str = Field(default="", alias="bot_admin_chat_id")
+
 app_settings = Settings() # type: ignore
 

@@ -65,7 +65,8 @@ def format_reminder_ping(event_title: str, event_datetime: str | None,
 
 def format_artist_card(artist: dict, upcoming: list[tuple[int, EventCreate]],
                        past: list[tuple[int, EventCreate]],
-                       unknown_date: list[tuple[int, EventCreate]]) -> str:
+                       unknown_date: list[tuple[int, EventCreate]],
+                       related: list[dict] | None = None) -> str:
     lines = [f"🎤 *{_escape_md(artist['name'])}*"]
     if artist.get("name_en"):
         lines.append(f"🌐 {artist['name_en']}")
@@ -73,6 +74,8 @@ def format_artist_card(artist: dict, upcoming: list[tuple[int, EventCreate]],
         lines.append(f"📸 [instagram.com/{artist['ig_handle']}](https://instagram.com/{artist['ig_handle']})")
     if artist.get("bio"):
         lines.append(f"\nℹ️ {_escape_md(artist['bio'])}")
+    if artist.get("summary"):
+        lines.append(f"\n📝 *خلاصه اجراها:*\n{_escape_md(artist['summary'])}")
     if not artist.get("resolved"):
         lines.append("\n_(اطلاعات تکمیلی این هنرمند هنوز بررسی نشده است)_")
 
@@ -90,4 +93,7 @@ def format_artist_card(artist: dict, upcoming: list[tuple[int, EventCreate]],
             lines.append(f"• {_escape_md(event.title or 'بدون عنوان')}")
     if not (upcoming or past or unknown_date):
         lines.append("\n_هنوز رویدادی برای این هنرمند ثبت نشده است._")
+    if related:
+        lines.append("\n👥 *هنرمندان مرتبط:*")
+        lines.append(" • ".join(_escape_md(a["name"]) for a in related))
     return "\n".join(lines)

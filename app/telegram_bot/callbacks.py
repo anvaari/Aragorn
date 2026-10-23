@@ -45,3 +45,18 @@ class RemindDelCB(CallbackData, prefix="remd"):
 
 class UnfollowCB(CallbackData, prefix="unfol"):
     follow_id: int
+
+
+class NormPageCB(CallbackData, prefix="normpg"):
+    page: int  # pending-proposal review page (0-based)
+
+
+class NormDecisionCB(CallbackData, prefix="normd"):
+    proposal_id: int
+    approve: int  # 1 = approve, 0 = reject
+    page: int  # page to re-render after the decision
+
+
+class NormBulkCB(CallbackData, prefix="normbulk"):
+    scope: str  # "page" | "all"
+    page: int
