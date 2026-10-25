@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     telegram_chat_id: str = Field(..., alias="telegram_chat")
 
     openai_api_key: str = Field(..., alias="openai_api_k")
+    openai_api_url: str = Field(default="", alias="openai_api_u")
     openai_text_model: str = Field(...,alias="openai_text_model")
     openai_image_model: str = Field(...,alias="openai_image_model")
 
