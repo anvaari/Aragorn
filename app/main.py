@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from api.v1 import router as api_router
 from core.scheduler import (shutdown_scheduler, start_bot_scheduler,
@@ -20,4 +21,12 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Aragorn - Independent Music Event Collector", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(api_router.router, prefix="/api/v1")
