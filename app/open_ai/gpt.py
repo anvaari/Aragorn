@@ -13,4 +13,6 @@ def get_openai_client():
         client = OpenAI(
             api_key=app_settings.openai_api_key
         )
+    if app_settings.openai_api_url:
+        client.base_url = app_settings.openai_api_url
     return client
