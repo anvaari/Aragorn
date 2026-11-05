@@ -19,13 +19,15 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_ignore_empty= False,
         env_file=".env",
-        env_file_encoding='utf-8'
+        env_file_encoding='utf-8',
+        extra="ignore",  # tolerate keys from other branches / older .env files
     )
 
     telegram_bot_token: str = Field(..., alias="telegram_bot_tk")
     telegram_chat_id: str = Field(..., alias="telegram_chat")
 
     openai_api_key: str = Field(..., alias="openai_api_k")
+    openai_api_url: str = Field(default="", alias="openai_api_u")
     openai_text_model: str = Field(...,alias="openai_text_model")
     openai_image_model: str = Field(...,alias="openai_image_model")
 
@@ -48,6 +50,10 @@ class Settings(BaseSettings):
     # Public @username of the Aragorn Telegram channel, WITHOUT the leading @.
     # Empty -> digest titles render as plain text (no t.me links).
     telegram_channel_username: str = Field(default="", alias="telegram_channel_username")
+
+    # Interactive bot (long polling). Only ONE process may poll per token;
+    # set false on secondary/dev instances.
+    bot_enabled: bool = Field(default=True, alias="bot_enabled")
 
 app_settings = Settings() # type: ignore
 
