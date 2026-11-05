@@ -40,8 +40,8 @@ def _day_view(jdate: str, label: str):
     """Message text + keyboard for one Shamsi date."""
     events = get_events_by_jdate_with_ids(jdate)
     if not events:
-        return f"🗓 *{label}*\n\n_برای این روز رویدادی ثبت نشده است._", day_picker_keyboard()
-    lines = [f"🗓 *رویدادهای {label}* — {len(events)} رویداد", ""]
+        return f"🗓 {label}\n\n_برای این روز رویدادی ثبت نشده است._", day_picker_keyboard()
+    lines = [f"🗓 *رویدادهای* {label} — {len(events)} رویداد", ""]
     for _event_id, event in events:
         lines.append(f"• {_escape_md(event.title or 'بدون عنوان')} — {event.time}")
     return "\n".join(lines), day_events_keyboard(events)

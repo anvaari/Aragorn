@@ -27,10 +27,6 @@ _SHAMSI_DATE_RE = re.compile(r"^(\d{4})\s*[-/.]\s*(\d{1,2})\s*[-/.]\s*(\d{1,2})$
 def fa_digits(text: str | int) -> str:
     return str(text).translate(_FA_DIGITS)
 
-def ltr(text: str) -> str:
-    """Prefix a Left-to-Right Mark so numeric dates keep their order in RTL text."""
-    return "\u200e" + text
-
 def en_digits(text: str) -> str:
     """Convert Persian/Arabic-Indic digits to ASCII digits."""
     return str(text).translate(_EN_DIGITS)
@@ -56,19 +52,19 @@ def parse_shamsi_date(text: str | None) -> str | None:
     return f"{year:04d}-{month:02d}-{day:02d}"
 
 def jdate_full_label(jdate: str) -> str:
-    """Human label for a Shamsi 'YYYY-MM-DD': 'جمعه ۱۴۰۵-۰۸-۲۵'.
+    """Human label for a Shamsi 'YYYY-MM-DD': 'جمعه `۱۴۰۵-۰۸-۲۵`'.
 
-    Keeps the same year-month-day order the user typed; `ltr()` stops the
-    RTL renderer from displaying it as 25-08-1405.
+    The date is wrapped in a Markdown code span: Telegram renders code LTR,
+    which stops RTL clients from displaying it as 25-08-1405.
     """
     try:
         year, month, day = (int(part) for part in jdate.split("-"))
         weekday_fa = jdatetime.date.j_weekdays_fa[
             jdatetime.date(year, month, day).isoweekday() - 1]
     except (ValueError, TypeError):
-        return ltr(fa_digits(jdate))
+        return f"`{fa_digits(jdate)}`"
     normalized = f"{year:04d}-{month:02d}-{day:02d}"
-    return f"{weekday_fa} {ltr(fa_digits(normalized))}"
+    return f"{weekday_fa} `{fa_digits(normalized)}`"
 
 def tehran_tz() -> ZoneInfo:
     return ZoneInfo(app_settings.digest_timezone)
@@ -131,7 +127,7 @@ def jday_full_label(day_offset: int) -> str:
         prefix = "فردا"
     else:
         prefix = f"{fa_digits(day_offset)} روز دیگر"
-    return f"{prefix} — {weekday_fa} {ltr(fa_digits(jdate))}"
+    return f"{prefix} — {weekday_fa} `{fa_digits(jdate)}`"
 
 def format_jdatetime(value: str | None) -> str:
     """Human display for an events.datetime string, Persian digits, weekday included."""
@@ -141,5 +137,5 @@ def format_jdatetime(value: str | None) -> str:
     jd = jdatetime.date.fromgregorian(date=dt.date())
     weekday_fa = jdatetime.date.j_weekdays_fa[jd.isoweekday() - 1]
     jdate = f"{jd.year:04d}-{jd.month:02d}-{jd.day:02d}"
-    return (f"{weekday_fa} {ltr(fa_digits(jdate))} "
-            f"ساعت {ltr(fa_digits(dt.strftime('%H:%M')))}")
+    return (f"{weekday_fa} `{fa_digits(jdate)}` "
+            f"ساعت `{fa_digits(dt.strftime('%H:%M'))}`")
