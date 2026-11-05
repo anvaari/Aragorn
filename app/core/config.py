@@ -19,8 +19,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_ignore_empty= False,
         env_file=".env",
-        env_file_encoding='utf-8',
-        extra="ignore",  # tolerate keys from other branches / older .env files
+        env_file_encoding='utf-8'
     )
 
     telegram_bot_token: str = Field(..., alias="telegram_bot_tk")
@@ -54,6 +53,15 @@ class Settings(BaseSettings):
     # Interactive bot (long polling). Only ONE process may poll per token;
     # set false on secondary/dev instances.
     bot_enabled: bool = Field(default=True, alias="bot_enabled")
+
+    # Artist identity enrichment via LLM + web search (Responses API).
+    # openai_artist_model empty -> falls back to openai_text_model.
+    artist_enrichment_enabled: bool = Field(default=True, alias="artist_enrichment_enabled")
+    openai_artist_model: str = Field(default="", alias="openai_artist_model")
+
+    # Personal (numeric) Telegram chat id of the admin — normalization proposals
+    # are sent here for approval. Empty -> approval notifications are skipped.
+    bot_admin_chat_id: str = Field(default="", alias="bot_admin_chat_id")
 
 app_settings = Settings() # type: ignore
 

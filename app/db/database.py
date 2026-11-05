@@ -39,6 +39,42 @@ def create_table(conn: sqlite3.Connection) -> None:
     """
     bot_ddls = [
         """
+        CREATE TABLE IF NOT EXISTS artists (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            normalized_name TEXT,
+            merged_into INTEGER,
+            name_en TEXT,
+            ig_handle TEXT,
+            bio TEXT,
+            resolved INTEGER DEFAULT 0,
+            source_url TEXT,
+            attempts INTEGER DEFAULT 0,
+            summary TEXT,
+            summary_event_count INTEGER DEFAULT 0,
+            created_at TEXT
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS event_artists (
+            id INTEGER PRIMARY KEY,
+            event_id INTEGER NOT NULL,
+            artist_id INTEGER NOT NULL,
+            artist_name_raw TEXT
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS artist_name_proposals (
+            id INTEGER PRIMARY KEY,
+            artist_id INTEGER NOT NULL,
+            current_name TEXT,
+            proposed_name TEXT,
+            status TEXT DEFAULT 'pending',
+            created_at TEXT,
+            decided_at TEXT
+        )
+        """,
+        """
         CREATE TABLE IF NOT EXISTS bot_users (
             chat_id INTEGER PRIMARY KEY,
             username TEXT,
@@ -57,6 +93,18 @@ def create_table(conn: sqlite3.Connection) -> None:
             UNIQUE(chat_id, event_id, remind_at)
         )
         """,
+        """
+        CREATE TABLE IF NOT EXISTS artist_follows (
+            id INTEGER PRIMARY KEY,
+            chat_id INTEGER NOT NULL,
+            artist_id INTEGER NOT NULL,
+            notify_new INTEGER DEFAULT 1,
+            notify_pre INTEGER DEFAULT 0,
+            pre_hours INTEGER DEFAULT 2,
+            created_at TEXT,
+            UNIQUE(chat_id, artist_id)
+        )
+        """,
     ]
     try:
         cur = conn.cursor()
@@ -73,6 +121,15 @@ def create_table(conn: sqlite3.Connection) -> None:
                     raise
         for bot_ddl in bot_ddls:
             cur.execute(bot_ddl)
+        artist_cols = {r[1] for r in cur.execute("PRAGMA table_info(artists)").fetchall()}
+        for col, col_ddl in (("normalized_name", "TEXT"), ("merged_into", "INTEGER"),
+                             ("summary", "TEXT"), ("summary_event_count", "INTEGER DEFAULT 0")):
+            if col not in artist_cols:
+                try:
+                    cur.execute(f"ALTER TABLE artists ADD COLUMN {col} {col_ddl}")
+                except sqlite3.OperationalError as e:
+                    if "duplicate column" not in str(e).lower():  # a concurrent process may win the ALTER race
+                        raise
     except Exception as e:
         logger.critical("Can't create tables on database",exc_info=True)
         raise e

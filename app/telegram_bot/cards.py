@@ -1,6 +1,7 @@
 """Text cards for bot DMs (event card, new-event alert, reminder ping)."""
 import re
 
+from db.crud_artist import display_name
 from models.event import EventCreate
 from telegram.event_formatter import LOC_PATTERN, _escape_md
 from utils.event_time import fa_digits, format_jdatetime
@@ -42,6 +43,11 @@ def format_event_card(event: EventCreate) -> str:
     return "\n".join(lines)
 
 
+def format_new_event_alert(event: EventCreate) -> str:
+    card = format_event_card(event)
+    return f"🔔 *رویداد جدید از هنرمندان دنبال‌شده:*\n{card}"
+
+
 def format_reminder_ping(event_title: str, event_datetime: str | None,
                          location: str, hours: int) -> str:
     when = format_jdatetime(event_datetime) if event_datetime else "زمان نامشخص"
@@ -55,4 +61,44 @@ def format_reminder_ping(event_title: str, event_datetime: str | None,
         lines.append(_location_part(location))
     lines.append("")
     lines.append("🎶 به‌زودی شروع می‌شود!")
+    return "\n".join(lines)
+
+
+def format_artist_card(artist: dict, upcoming: list[tuple[int, EventCreate]],
+                       past: list[tuple[int, EventCreate]],
+                       unknown_date: list[tuple[int, EventCreate]],
+                       related: list[dict] | None = None) -> str:
+    title = display_name(artist)
+    lines = [f"🎤 *{_escape_md(title)}*"]
+    original = artist.get("name") or ""
+    if original != title:
+        lines.append(f"👤 نام اصلی: {_escape_md(original)}")
+    if artist.get("name_en") and artist["name_en"] != title:
+        lines.append(f"🌐 {artist['name_en']}")
+    if artist.get("ig_handle"):
+        lines.append(f"📸 [instagram.com/{artist['ig_handle']}](https://instagram.com/{artist['ig_handle']})")
+    if artist.get("bio"):
+        lines.append(f"\nℹ️ {_escape_md(artist['bio'])}")
+    if artist.get("summary"):
+        lines.append(f"\n📝 *خلاصه اجراها:*\n{_escape_md(artist['summary'])}")
+    if not artist.get("resolved"):
+        lines.append("\n_(اطلاعات تکمیلی این هنرمند هنوز بررسی نشده است)_")
+
+    if upcoming:
+        lines.append(f"\n🗓 *اجراهای پیش‌رو:*")
+        for _, event in upcoming:
+            lines.append(f"• {_escape_md(event.title or 'بدون عنوان')} — {format_jdatetime(event.datetime)}")
+    if past:
+        lines.append(f"\n🕰 *اجراهای گذشته:*")
+        for _, event in past:
+            lines.append(f"• {_escape_md(event.title or 'بدون عنوان')} — {format_jdatetime(event.datetime)}")
+    if unknown_date:
+        lines.append(f"\n❓ *بدون تاریخ مشخص:*")
+        for _, event in unknown_date:
+            lines.append(f"• {_escape_md(event.title or 'بدون عنوان')}")
+    if not (upcoming or past or unknown_date):
+        lines.append("\n_هنوز رویدادی برای این هنرمند ثبت نشده است._")
+    if related:
+        lines.append("\n👥 *هنرمندان مرتبط:*")
+        lines.append(" • ".join(_escape_md(display_name(a)) for a in related))
     return "\n".join(lines)

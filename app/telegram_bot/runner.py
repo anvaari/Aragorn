@@ -9,7 +9,7 @@ from aiogram.exceptions import TelegramNetworkError
 
 from core.config import app_settings
 from log.logger import get_app_logger
-from telegram_bot.handlers import common, events, reminders
+from telegram_bot.handlers import admin, artists, common, events, reminders
 
 logger = get_app_logger(__name__)
 
@@ -43,7 +43,8 @@ def _new_bot() -> Bot:
 def _new_dispatcher() -> Dispatcher:
     # Built once and reused: routers can only be attached to a single dispatcher.
     dispatcher = Dispatcher()
-    dispatcher.include_routers(common.router, events.router, reminders.router)
+    dispatcher.include_routers(common.router, events.router,
+                               artists.router, reminders.router, admin.router)
     return dispatcher
 
 

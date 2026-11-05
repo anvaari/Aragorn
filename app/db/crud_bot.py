@@ -103,3 +103,71 @@ def delete_reminder(reminder_id: int, chat_id: int) -> bool:
         conn.commit()
         conn.close()
         return deleted
+
+def upsert_artist_follow(chat_id: int, artist_id: int,
+                         notify_new: bool, notify_pre: bool, pre_hours: int = 2) -> None:
+    conn = initialize_db()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO artist_follows (chat_id, artist_id, notify_new, notify_pre, pre_hours, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(chat_id, artist_id) DO UPDATE SET "
+            "notify_new = excluded.notify_new, notify_pre = excluded.notify_pre, pre_hours = excluded.pre_hours",
+            (chat_id, artist_id, int(notify_new), int(notify_pre), pre_hours, _now_str()),
+        )
+    except Exception:
+        logger.error(f"Can't upsert follow chat_id={chat_id} artist_id={artist_id}",exc_info=True)
+        conn.rollback()
+    else:
+        conn.commit()
+    finally:
+        conn.close()
+
+_FOLLOW_SELECT = (
+    "SELECT f.id, f.chat_id, f.artist_id, f.notify_new, f.notify_pre, f.pre_hours, "
+    "a.name AS artist_name, a.normalized_name AS artist_name_norm, "
+    "a.name_en AS artist_name_en "
+    "FROM artist_follows f JOIN artists a ON a.id = f.artist_id"
+)
+
+def _fetch_follows(sql: str, params: tuple) -> list[dict]:
+    conn = initialize_db()
+    try:
+        cur = conn.cursor()
+        cur.execute(sql, params)
+        names = [d[0] for d in cur.description]
+        rows = [dict(zip(names, r)) for r in cur.fetchall()]
+    except Exception:
+        logger.error(f"Can't fetch follows for query: {sql} {params}",exc_info=True)
+        rows = []
+    finally:
+        conn.close()
+    return rows
+
+def get_follow(chat_id: int, artist_id: int) -> dict | None:
+    rows = _fetch_follows(f"{_FOLLOW_SELECT} WHERE f.chat_id = ? AND f.artist_id = ?",
+                          (chat_id, artist_id))
+    return rows[0] if rows else None
+
+def get_user_follows(chat_id: int) -> list[dict]:
+    return _fetch_follows(f"{_FOLLOW_SELECT} WHERE f.chat_id = ? ORDER BY f.id", (chat_id,))
+
+def get_new_event_follows() -> list[dict]:
+    return _fetch_follows(f"{_FOLLOW_SELECT} WHERE f.notify_new = 1 OR f.notify_pre = 1", ())
+
+def delete_follow(follow_id: int, chat_id: int) -> bool:
+    conn = initialize_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM artist_follows WHERE id = ? AND chat_id = ?", (follow_id, chat_id))
+        deleted = cur.rowcount > 0
+    except Exception:
+        logger.error(f"Can't delete follow id={follow_id}",exc_info=True)
+        conn.rollback()
+        conn.close()
+        return False
+    else:
+        conn.commit()
+        conn.close()
+        return deleted

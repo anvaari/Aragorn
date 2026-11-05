@@ -3,13 +3,16 @@ from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
 
 from db import crud_bot
+from db.crud_artist import get_event_artists
 from db.crud_event import get_event_by_id, get_events_by_jdate_with_ids
 from log.logger import get_app_logger
-from telegram_bot.callbacks import DayCB, EventCB, RemindHoursCB, RemindSetCB
+from telegram_bot.callbacks import (ArtistsOfCB, DayCB, EventCB, RemindHoursCB,
+                                    RemindSetCB)
 from telegram_bot.cards import _escape_md, format_event_card
 from telegram_bot.handlers.common import DAY_PICKER_TEXT, safe_edit
 from telegram_bot.keyboards import (day_events_keyboard, day_picker_keyboard,
-                                    event_card_keyboard, reminder_choice_keyboard)
+                                    event_artists_keyboard, event_card_keyboard,
+                                    reminder_choice_keyboard)
 from utils.event_time import (event_remind_at, jdate_for_offset, jday_full_label,
                               now_tehran, parse_event_datetime)
 
@@ -106,3 +109,32 @@ async def set_reminder(callback: CallbackQuery, callback_data: RemindHoursCB) ->
         await callback.answer(f"✅ یادآوری ثبت شد: {chosen}", show_alert=True)
     else:
         await callback.answer("ℹ️ این یادآوری قبلاً ثبت شده است.", show_alert=True)
+
+
+@router.callback_query(ArtistsOfCB.filter())
+async def show_event_artists(callback: CallbackQuery, callback_data: ArtistsOfCB) -> None:
+    event = get_event_by_id(callback_data.event_id)
+    if not event:
+        await callback.answer("🤔 رویداد مورد نظر پیدا نشد.", show_alert=True)
+        return
+    artists = get_event_artists(callback_data.event_id)
+    if not artists:
+        # nothing linked yet: show the raw performers text
+        raw_names = [name.strip() for name in event.performers.split(",") if name.strip()]
+        text = f"👥 *هنرمندان {_escape_md(event.title or 'بدون عنوان')}:*"
+        if raw_names:
+            text += "\n\n" + " · ".join(_escape_md(name) for name in raw_names)
+        else:
+            text += "\n_هنوز هنرمندی ثبت نشده است._"
+        await safe_edit(callback, text, event_card_keyboard(callback_data.event_id))
+        await callback.answer()
+        return
+
+    raw_names = [a["artist_name_raw"] for a in artists if a.get("artist_name_raw")]
+    lines = ["👥 *هنرمندان این اجرا* (برای اطلاعات و دنبال کردن انتخاب کنید):"]
+    if raw_names:
+        lines.append("")
+        lines.append(" · ".join(_escape_md(name) for name in raw_names))
+    await safe_edit(callback, "\n".join(lines),
+                    event_artists_keyboard(callback_data.event_id, artists))
+    await callback.answer()
