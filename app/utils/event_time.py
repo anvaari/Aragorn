@@ -3,6 +3,7 @@
 events.datetime is stored as "YYYY-MM-DD HH:MM". New rows (GPT prompt) are
 Shamsi; a few legacy rows are Gregorian. Year > 1500 is treated as Gregorian.
 """
+import re
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -19,9 +20,46 @@ _JMONTHS_FA = ["فروردین", "اردیبهشت", "خرداد", "تیر", "م
                "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
 
 _FA_DIGITS = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
+_EN_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
+
+_SHAMSI_DATE_RE = re.compile(r"^(\d{4})\s*[-/.]\s*(\d{1,2})\s*[-/.]\s*(\d{1,2})$")
 
 def fa_digits(text: str) -> str:
     return str(text).translate(_FA_DIGITS)
+
+def en_digits(text: str) -> str:
+    """Convert Persian/Arabic-Indic digits to ASCII digits."""
+    return str(text).translate(_EN_DIGITS)
+
+def parse_shamsi_date(text: str | None) -> str | None:
+    """Normalize a user-typed Shamsi date to 'YYYY-MM-DD', or None if invalid.
+
+    Accepts Persian/Arabic digits and '-', '/', or '.' separators, e.g.
+    '1405-08-25', '۱۴۰۵/۸/۲۵'.
+    """
+    if not text:
+        return None
+    match = _SHAMSI_DATE_RE.match(en_digits(text).strip())
+    if not match:
+        return None
+    year, month, day = (int(part) for part in match.groups())
+    if not (1300 <= year <= 1500):
+        return None
+    try:
+        jdatetime.date(year, month, day)  # rejects impossible dates
+    except ValueError:
+        return None
+    return f"{year:04d}-{month:02d}-{day:02d}"
+
+def jdate_full_label(jdate: str) -> str:
+    """Human label for a Shamsi 'YYYY-MM-DD': 'جمعه ۲۵ آبان ۱۴۰۵'."""
+    try:
+        year, month, day = (int(part) for part in jdate.split("-"))
+        jd = jdatetime.date(year, month, day)
+    except (ValueError, TypeError):
+        return fa_digits(jdate)
+    weekday_fa = jdatetime.date.j_weekdays_fa[jd.isoweekday() - 1]
+    return f"{weekday_fa} {fa_digits(day)} {_JMONTHS_FA[month - 1]} {fa_digits(year)}"
 
 def tehran_tz() -> ZoneInfo:
     return ZoneInfo(app_settings.digest_timezone)

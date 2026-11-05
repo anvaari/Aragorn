@@ -1,23 +1,50 @@
-from aiogram import Router
+import re
+
+from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
 
 from db import crud_bot
 from db.crud_event import get_event_by_id, get_events_by_jdate_with_ids
 from log.logger import get_app_logger
-from telegram_bot.callbacks import DayCB, EventCB, RemindHoursCB, RemindSetCB
+from telegram_bot.callbacks import DayCB, EventCB, MenuCB, RemindHoursCB, RemindSetCB
 from telegram_bot.cards import _escape_md, format_event_card
 from telegram_bot.handlers.common import DAY_PICKER_TEXT, safe_edit
 from telegram_bot.keyboards import (day_events_keyboard, day_picker_keyboard,
                                     event_card_keyboard, reminder_choice_keyboard)
-from utils.event_time import (event_remind_at, jdate_for_offset, jday_full_label,
-                              now_tehran, parse_event_datetime)
+from utils.event_time import (event_remind_at, jdate_for_offset, jdate_full_label,
+                              jday_full_label, now_tehran, parse_event_datetime,
+                              parse_shamsi_date)
 
 logger = get_app_logger(__name__)
 
 router = Router()
 
 _REMINDER_HOURS = (2, 24)  # "هر دو" creates both
+
+_DATE_PROMPT_TEXT = (
+    "📅 *تاریخ شمسی را بنویسید*\n\n"
+    "مثال: `1405-08-25`\n"
+    "با ارقام فارسی هم می‌شود: `۱۴۰۵/۰۸/۲۵`"
+)
+
+_DATE_LIKE_RE = re.compile(r"^[\d۰-۹٠-٩\s\-/.]+$")
+
+
+def _looks_like_date(text: str) -> bool:
+    """True for date-ish input, so ordinary chatter is ignored instead of answered."""
+    return bool(_DATE_LIKE_RE.match(text)) and sum(ch.isdigit() for ch in text) >= 3
+
+
+def _day_view(jdate: str, label: str):
+    """Message text + keyboard for one Shamsi date."""
+    events = get_events_by_jdate_with_ids(jdate)
+    if not events:
+        return f"🗓 *{label}*\n\n_برای این روز رویدادی ثبت نشده است._", day_picker_keyboard()
+    lines = [f"🗓 *رویدادهای {label}* — {len(events)} رویداد", ""]
+    for _event_id, event in events:
+        lines.append(f"• {_escape_md(event.title or 'بدون عنوان')} — {event.time}")
+    return "\n".join(lines), day_events_keyboard(events)
 
 
 @router.message(Command("events"))
@@ -28,17 +55,27 @@ async def cmd_events(message: Message) -> None:
 @router.callback_query(DayCB.filter())
 async def show_day(callback: CallbackQuery, callback_data: DayCB) -> None:
     jdate, _weekday = jdate_for_offset(callback_data.offset)
-    label = jday_full_label(callback_data.offset)
-    events = get_events_by_jdate_with_ids(jdate)
-    if not events:
-        text = f"🗓 *{label}*\n\n_برای این روز رویدادی ثبت نشده است._"
-        await safe_edit(callback, text, day_picker_keyboard())
-    else:
-        lines = [f"🗓 *رویدادهای {label}* — {len(events)} رویداد", ""]
-        for _event_id, event in events:
-            lines.append(f"• {_escape_md(event.title or 'بدون عنوان')} — {event.time}")
-        await safe_edit(callback, "\n".join(lines), day_events_keyboard(events))
+    text, keyboard = _day_view(jdate, jday_full_label(callback_data.offset))
+    await safe_edit(callback, text, keyboard)
     await callback.answer()
+
+
+@router.callback_query(MenuCB.filter(F.action == "date"))
+async def ask_date(callback: CallbackQuery, callback_data: MenuCB) -> None:
+    await safe_edit(callback, _DATE_PROMPT_TEXT, day_picker_keyboard())
+    await callback.answer()
+
+
+@router.message(F.text & ~F.text.startswith("/"))
+async def search_by_date(message: Message) -> None:
+    """Let users type a Shamsi date (e.g. 1405-08-25) to see that day's events."""
+    jdate = parse_shamsi_date(message.text)
+    if jdate is None:
+        if _looks_like_date(message.text or ""):
+            await message.answer("😕 تاریخ معتبر نیست. نمونه: `1405-08-25`")
+        return
+    text, keyboard = _day_view(jdate, jdate_full_label(jdate))
+    await message.answer(text, reply_markup=keyboard)
 
 
 @router.callback_query(EventCB.filter())

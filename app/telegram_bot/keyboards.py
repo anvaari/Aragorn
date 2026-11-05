@@ -29,6 +29,8 @@ def day_picker_keyboard() -> InlineKeyboardMarkup:
         )
     builder.adjust(2)
     builder.row(InlineKeyboardButton(
+        text="🔎 جستجو با تاریخ", callback_data=MenuCB(action="date").pack()))
+    builder.row(InlineKeyboardButton(
         text="🏠 منوی اصلی", callback_data=MenuCB(action="main").pack()))
     return builder.as_markup()
 

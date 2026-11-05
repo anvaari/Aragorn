@@ -21,7 +21,10 @@ WELCOME_TEXT = (
     "از منوی زیر شروع کنید:"
 )
 
-DAY_PICKER_TEXT = "📅 *یک روز را انتخاب کنید:*"
+DAY_PICKER_TEXT = (
+    "📅 *یک روز را انتخاب کنید:*\n\n"
+    "_یا تاریخ شمسی را بنویسید، مثل_ `1405-08-25`"
+)
 
 
 def _register_user(message: Message) -> None:
