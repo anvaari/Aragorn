@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>آرگورن</title>
+  <title>آراگورن</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <!-- Pinned + SRI: this script builds the wallet transfer, so a tampered copy must not load. -->
   <script src="https://unpkg.com/@tonconnect/ui@5.0.1/dist/tonconnect-ui.min.js"
@@ -246,7 +246,7 @@
     const UNITS = { XTR: "ستاره", GRAM: "GRAM", USDC: "USDC" };
     const STAMP = { pending: ["در انتظار", "تأیید"], approved: ["تأیید", "شده"], rejected: ["رد", "شده"] };
     const STATUS_TEXT = {
-      pending: "ادمین آرگورن پروفایلت را بررسی می‌کند. تا تأیید نشود، صفحه‌ات برای دیگران دیده نمی‌شود.",
+      pending: "ادمین آراگورن پروفایلت را بررسی می‌کند. تا تأیید نشود، صفحه‌ات برای دیگران دیده نمی‌شود.",
       approved: "صفحه‌ات روی قفسه است. لینک اشتراکش را ربات بعد از تأیید برایت فرستاده است.",
       rejected: "درخواستت تأیید نشد. اطلاعات را اصلاح کن و دوباره بفرست.",
     };
@@ -256,7 +256,7 @@
     const TIER_AMOUNTS = { XTR: [50, 250, 1000], GRAM: [1, 5, 20] };
     const COIN_SPOTS = [[6, 2], [30, 2], [54, 2], [18, 20], [42, 20], [64, 6], [30, 38], [6, 24], [54, 36], [18, 56], [42, 56]];
     const RAILS = {
-      XTR: ["ستاره", "star", "پرداخت داخل خود تلگرام. ستاره‌ها نزد آرگورن جمع می‌شود و ادمین با هنرمند تسویه می‌کند."],
+      XTR: ["ستاره", "star", "پرداخت داخل خود تلگرام. ستاره‌ها نزد آراگورن جمع می‌شود و ادمین با هنرمند تسویه می‌کند."],
       GRAM: ["GRAM", "gem", "مستقیم به کیف‌پول هنرمند روی شبکهٔ TON، با Wallet تلگرام یا Tonkeeper."],
       USDC: ["USDC", "coin", "فقط USDC روی شبکهٔ Base را مستقیم به کیف‌پول هنرمند بفرست، بعد هش تراکنش را اینجا بگذار."],
     };
@@ -428,7 +428,7 @@
       const [todayNum, todayMonth] = days[0].date_fa.split(" ");
       view.replaceChildren(
         h("header", { class: "night" }, lights(),
-          h("div", { class: "brand-row" }, h("span", { class: "brand" }, "آرگورن"), h("span", { class: "brand-sub" }, "موسیقی مستقل، همین نزدیکی")),
+          h("div", { class: "brand-row" }, h("span", { class: "brand" }, "آراگورن"), h("span", { class: "brand-sub" }, "موسیقی مستقل، همین نزدیکی")),
           h("p", { class: "greet" }, `${days[0].weekday}، ${todayNum} ${todayMonth}`),
           h("h1", { class: "display" }, "امشب کجا بریم؟"),
           h("div", { class: "strip", role: "group", "aria-label": "روزهای هفته" }, ...buttons)),
@@ -495,7 +495,7 @@
             h("div", {}, h("h2", { class: "display" }, "یادم بنداز"), h("p", { class: "meta" }, "پیش از اجرا، همین‌جا در تلگرام خبرت می‌کنیم."))),
           h("div", { class: "pills", role: "group", "aria-label": "زمان یادآوری" }, ...pills)),
         event.artist_id && h("button", { type: "button", class: "artist-link", onclick: () => openArtist(event.artist_id) },
-          h("span", { class: "grow" }, h("small", {}, "این هنرمند در آرگورن صفحه دارد"), h("span", { class: "display" }, "یک چای مهمانش کن")),
+          h("span", { class: "grow" }, h("small", {}, "این هنرمند در آراگورن صفحه دارد"), h("span", { class: "display" }, "یک چای مهمانش کن")),
           icon("chevron", 22)),
         h("div", { class: "cta-bar" }, cta));
     }
@@ -703,7 +703,7 @@
         h("label", { class: "field" }, "معرفی کوتاه", h("textarea", { name: "bio", maxlength: "500", rows: "3" }, artist?.bio || "")),
         field("ton_address", "کیف‌پول TON، برای GRAM (اختیاری)", "آدرس با چک‌سام بررسی می‌شود؛ آدرس تست‌نت پذیرفته نیست.", { dir: "ltr", placeholder: "UQ…" }),
         field("evm_address", "کیف‌پول Base، برای USDC (اختیاری)", "فقط USDC روی شبکهٔ Base؛ واریز از شبکه‌های دیگر دیده نمی‌شود.", { dir: "ltr", placeholder: "0x…" }),
-        h("div", { class: "info-row" }, icon("star", 20), h("p", {}, "ستاره‌های تلگرام هم فعال است: نزد آرگورن جمع می‌شود و ادمین با تو تسویه می‌کند.")),
+        h("div", { class: "info-row" }, icon("star", 20), h("p", {}, "ستاره‌های تلگرام هم فعال است: نزد آراگورن جمع می‌شود و ادمین با تو تسویه می‌کند.")),
         h("p", { class: "hint" }, "هر ویرایش دوباره برای بررسی ادمین فرستاده می‌شود."));
       form.onsubmit = event => event.preventDefault();
       view.replaceChildren(
@@ -743,7 +743,7 @@
     }
 
     if (tg?.initData) boot().catch(e => notify(e.message));
-    else view.replaceChildren(h("p", { class: "loading" }, "این صفحه را از داخل ربات آرگورن در تلگرام باز کنید."));
+    else view.replaceChildren(h("p", { class: "loading" }, "این صفحه را از داخل ربات آراگورن در تلگرام باز کنید."));
   </script>
 </body>
 </html>

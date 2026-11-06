@@ -100,5 +100,5 @@ def format_donation_received(asset: str, amount: str) -> str:
     ]
     if asset == "XTR":
         lines.append("")
-        lines.append("_استارزها در حساب ربات آرگورن جمع می‌شوند و ادمین با شما تسویه می‌کند._")
+        lines.append("_استارزها در حساب ربات آراگورن جمع می‌شوند و ادمین با شما تسویه می‌کند._")
     return "\n".join(lines)

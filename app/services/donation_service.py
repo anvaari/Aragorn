@@ -70,7 +70,7 @@ def submit_artist_claim(chat_id: int, username: str | None, claim: ArtistClaim) 
 def create_stars_invoice(artist: dict, amount: int) -> str:
     status, res = create_stars_invoice_link(
         title=f"حمایت از {artist['name']}"[:32],
-        description=f"{amount} استارز برای {artist['name']} از طریق آرگورن"[:255],
+        description=f"{amount} استارز برای {artist['name']} از طریق آراگورن"[:255],
         payload=f"artist:{artist['id']}",
         amount=amount,
     )
