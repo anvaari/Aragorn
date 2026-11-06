@@ -217,6 +217,8 @@ Artist profiles stay hidden until the admin approves them from a bot DM, and eve
    bot_admin_chat_id=your_numeric_telegram_id
    ```
 
+   Keep the trailing `/` on `miniapp_url` (`/miniapp` redirects, which can drop to `http` behind a TLS proxy). Send `/start` to the bot once from the admin account, or claim notifications can't reach you.
+
 3. In [@BotFather](https://t.me/BotFather): *Bot Settings → Configure Mini App → Enable Mini App* with the same `miniapp_url`. This makes the share links artists receive on approval (`https://t.me/<bot>?startapp=artist_<id>`) open the app directly.
 
 Run the self-checks with `python tests/test_donations.py`.

@@ -21,7 +21,9 @@ from telegram_bot.keyboards import artist_review_keyboard
 logger = get_app_logger(__name__)
 
 ASSET_DECIMALS = {"XTR": 0, "GRAM": 9, "USDC": 6}
-_GRAM_PENDING_WINDOW = timedelta(hours=24)  # stop looking for abandoned TON Connect payments after this
+# TON Connect requests expire after 600s, so an hour covers slow confirmations; older intents are abandoned.
+_GRAM_PENDING_WINDOW = timedelta(hours=1)
+_GRAM_PENDING_PER_DONOR = 5  # open intents per donor in that window, so one user can't starve the sweep
 
 def human_amount(asset: str, amount: int) -> str:
     """Base units -> display string, e.g. ('GRAM', 1500000000) -> '1.5'."""
@@ -94,13 +96,18 @@ def create_gram_donation(artist: dict, donor_chat_id: int, amount: Decimal) -> d
     """Open a pending donation and return the TON Connect message that pays it."""
     if not artist["ton_address"]:
         raise HTTPException(400, "این هنرمند کیف پول GRAM ثبت نکرده است.")
-    donation_id = crud_donation.add_donation(artist["id"], donor_chat_id, "GRAM")
+    since = (datetime.now() - _GRAM_PENDING_WINDOW).strftime("%Y-%m-%d %H:%M:%S")
+    if crud_donation.count_pending_donations(donor_chat_id, "GRAM", since) >= _GRAM_PENDING_PER_DONOR:
+        raise HTTPException(429, "چند پرداخت GRAM نیمه‌کاره دارید؛ کمی بعد دوباره امتحان کنید.")
+    # Pending rows keep the intended amount (totals only count confirmed rows); confirm overwrites it.
+    nano_amount = int(amount.scaleb(ASSET_DECIMALS["GRAM"]))
+    donation_id = crud_donation.add_donation(artist["id"], donor_chat_id, "GRAM", amount=nano_amount)
     if donation_id is None:
         raise HTTPException(500, "ثبت حمایت ناموفق بود.")
     return {
         "donation_id": donation_id,
         "address": artist["ton_address"],
-        "amount": str(int(amount.scaleb(ASSET_DECIMALS["GRAM"]))),
+        "amount": str(nano_amount),
         "payload": ton.comment_payload(_gram_comment(donation_id)),
     }
 
@@ -113,7 +120,8 @@ def verify_gram_donation(donation: dict) -> str:
         return "pending"
     # 60s margin for clock skew between this host and the chain
     since = int(datetime.strptime(donation["created_at"], "%Y-%m-%d %H:%M:%S").timestamp()) - 60
-    found = ton.find_incoming_comment(artist["ton_address"], _gram_comment(donation["id"]), since)
+    found = ton.find_incoming_comment(artist["ton_address"], _gram_comment(donation["id"]), since,
+                                      min_value=donation["amount"] or 0)
     if found is None:
         return "pending"
     tx_hash, value = found
@@ -125,7 +133,10 @@ def verify_pending_gram_donations() -> None:
     """Scheduler sweep: catch payments whose donor closed the Mini App before it confirmed."""
     since = (datetime.now() - _GRAM_PENDING_WINDOW).strftime("%Y-%m-%d %H:%M:%S")
     for donation in crud_donation.get_pending_donations("GRAM", since):
-        verify_gram_donation(donation)
+        try:
+            verify_gram_donation(donation)
+        except Exception:
+            logger.error(f"Can't verify pending GRAM donation id={donation['id']}",exc_info=True)
         time.sleep(1)  # keyless toncenter allows ~1 request/second
 
 def record_usdc_donation(artist: dict, donor_chat_id: int, tx_hash: str) -> dict:

@@ -22,12 +22,17 @@ for key, value in {
     os.environ[key] = value
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 
+from types import SimpleNamespace  # noqa: E402
+
 from fastapi import HTTPException  # noqa: E402
 
 from api.v1.endpoints.miniapp import verify_init_data  # noqa: E402
+from core.config import app_settings  # noqa: E402
 from db import crud_donation  # noqa: E402
 from payments import ton, usdc  # noqa: E402
+from services import donation_service  # noqa: E402
 from services.donation_service import human_amount  # noqa: E402
+from telegram_bot.keyboards import main_menu_keyboard  # noqa: E402
 
 _TON_ADDRESS = "UQCFJEP4WZ_mpdo0_kMEmsTgvrMHG7K_tWY16pQhKHwoOtFz"
 _BASE_ADDRESS = "0x9d7d8b567ee10bcb4f9db438245e1d0668175d72"
@@ -102,20 +107,54 @@ def test_usdc_amount_from_receipt():
 
 
 def test_gram_lookup_matches_comment():
-    def tx(tx_hash: str, comment: str, aborted: bool) -> dict:
+    def tx(tx_hash: str, comment: str, aborted: bool, value: str = "1500000000") -> dict:
         return {"hash": tx_hash, "description": {"aborted": aborted},
-                "in_msg": {"source": "0:AB", "value": "1500000000",
+                "in_msg": {"source": "0:AB", "value": value,
                            "message_content": {"decoded": {"@type": "text_comment", "comment": comment}}}}
     page = {"transactions": [tx("bounced", "Aragorn donation #7", True),
                              tx("other", "Aragorn donation #8", False),
-                             tx("paid", "Aragorn donation #7", False)]}
+                             tx("paid", "Aragorn donation #7", False),
+                             tx("dust", "Aragorn donation #9", False, value="1")]}
     original = ton.requests.get
     try:
         ton.requests.get = lambda *a, **k: _FakeResponse(page)
         assert ton.find_incoming_comment(_TON_ADDRESS, "Aragorn donation #7", 0) == ("paid", 1_500_000_000)
-        assert ton.find_incoming_comment(_TON_ADDRESS, "Aragorn donation #9", 0) is None
+        assert ton.find_incoming_comment(_TON_ADDRESS, "Aragorn donation #10", 0) is None
+        # 1 nanoGRAM with a copied comment must not confirm (and consume) a 2.5 GRAM intent
+        assert ton.find_incoming_comment(_TON_ADDRESS, "Aragorn donation #9", 0, min_value=2_500_000_000) is None
     finally:
         ton.requests.get = original
+
+
+def test_gram_sweep_survives_a_bad_row():
+    seen = []
+    def failing_verify(donation: dict) -> str:
+        seen.append(donation["id"])
+        raise KeyError("description")
+    originals = (donation_service.verify_gram_donation, donation_service.time,
+                 crud_donation.get_pending_donations)
+    try:
+        donation_service.verify_gram_donation = failing_verify
+        donation_service.time = SimpleNamespace(sleep=lambda seconds: None)
+        crud_donation.get_pending_donations = lambda asset, since: [{"id": 1}, {"id": 2}]
+        donation_service.verify_pending_gram_donations()
+        assert seen == [1, 2]
+    finally:
+        (donation_service.verify_gram_donation, donation_service.time,
+         crud_donation.get_pending_donations) = originals
+
+
+def test_miniapp_button_needs_https():
+    def has_web_app_button(url: str) -> bool:
+        app_settings.miniapp_url = url
+        return any(button.web_app for row in main_menu_keyboard().inline_keyboard for button in row)
+    original = app_settings.miniapp_url
+    try:
+        assert has_web_app_button(" https://aragorn.example.com/miniapp/ ")
+        assert not has_web_app_button("http://x")
+        assert not has_web_app_button("")
+    finally:
+        app_settings.miniapp_url = original
 
 
 def test_claim_review_and_ledger():

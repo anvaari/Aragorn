@@ -28,7 +28,8 @@ def send_text_to_chat(chat_id:str|int, text:str, reply_markup:str|None = None):
     res = requests.post(
         url,
         data=data,
-        proxies=proxies
+        proxies=proxies,
+        timeout=10,
     )
     return res.status_code,res.json()
 

@@ -93,6 +93,11 @@ def get_pending_donations(asset: str, since: str) -> list[dict]:
     return _fetch("SELECT * FROM donations WHERE asset = ? AND status = 'pending' AND created_at >= ? "
                   "ORDER BY id DESC LIMIT 100", (asset, since))
 
+def count_pending_donations(donor_chat_id: int, asset: str, since: str) -> int:
+    rows = _fetch("SELECT COUNT(*) AS n FROM donations WHERE donor_chat_id = ? AND asset = ? "
+                  "AND status = 'pending' AND created_at >= ?", (donor_chat_id, asset, since))
+    return rows[0]["n"] if rows else 0
+
 def confirm_donation(donation_id: int, amount: int, tx_ref: str) -> bool:
     """Mark a pending donation paid; False if another caller confirmed it first."""
     rowcount, _ = _execute(

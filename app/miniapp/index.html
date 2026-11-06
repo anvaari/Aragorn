@@ -70,6 +70,9 @@
     const view = document.getElementById("view");
     let artists = [];
     let tonConnect = null;
+    // One node for TON Connect's button, re-attached on every artist page: the widget renders
+    // into its root only once, so a fresh #ton-connect element would stay empty.
+    let tonButtonRoot = null;
 
     // Tiny DOM builder; user text always goes in as text nodes, never as HTML.
     function h(tag, attrs = {}, ...children) {
@@ -90,7 +93,8 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(typeof data.detail === "string" ? data.detail : "مقادیر واردشده معتبر نیست.");
+        if (typeof data.detail === "string") throw new Error(data.detail);
+        throw new Error(res.status >= 500 ? "خطای سرور؛ کمی بعد دوباره امتحان کنید." : "مقادیر واردشده معتبر نیست.");
       }
       return data;
     }
@@ -110,9 +114,11 @@
       return button;
     }
 
+    // Call only while tonButtonRoot is in the document: the button is rendered into it on first use.
     function tonUI() {
       tonConnect ??= new TON_CONNECT_UI.TonConnectUI({
         manifestUrl: location.origin + API + "/tonconnect-manifest.json",
+        buttonRootId: "ton-connect",
       });
       return tonConnect;
     }
@@ -146,7 +152,7 @@
         artist.evm_address && usdcSection(artist, status),
         status,
       ].filter(Boolean));
-      if (artist.ton_address) tonUI().uiOptions = { buttonRootId: "ton-connect" };
+      if (artist.ton_address) tonUI();
     }
 
     function starsSection(artist, status) {
@@ -170,7 +176,7 @@
       return h("section", { class: "card" },
         h("h3", {}, "💎 GRAM (شبکه TON)"),
         h("p", { class: "hint" }, "مستقیم از کیف پول شما به کیف پول هنرمند واریز می‌شود."),
-        h("div", { id: "ton-connect" }),
+        tonButtonRoot ??= h("div", { id: "ton-connect" }),
         amount,
         action("ارسال GRAM", () => donateGram(artist, amount.value, status)));
     }

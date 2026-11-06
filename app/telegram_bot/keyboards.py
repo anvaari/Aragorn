@@ -18,9 +18,10 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
     builder.row(
         InlineKeyboardButton(text="🔔 یادآورها", callback_data=MenuCB(action="reminders").pack()),
     )
-    if app_settings.miniapp_url:
+    miniapp_url = app_settings.miniapp_url.strip()
+    if miniapp_url.startswith("https://"):  # Telegram rejects the whole message for a non-HTTPS web_app URL
         builder.row(InlineKeyboardButton(
-            text="🎨 حمایت از هنرمندان", web_app=WebAppInfo(url=app_settings.miniapp_url)))
+            text="🎨 حمایت از هنرمندان", web_app=WebAppInfo(url=miniapp_url)))
     return builder.as_markup()
 
 

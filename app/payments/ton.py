@@ -33,8 +33,9 @@ def comment_payload(text: str) -> str:
     boc = bytes.fromhex("b5ee9c72") + bytes([1, 1, 1, 1, 0, len(cell), 0]) + cell
     return base64.b64encode(boc).decode()
 
-def find_incoming_comment(address: str, comment: str, since_utime: int) -> tuple[str, int] | None:
-    """(tx hash, nanoGRAM) of a successful incoming transfer to address carrying comment, or None."""
+def find_incoming_comment(address: str, comment: str, since_utime: int,
+                          min_value: int = 0) -> tuple[str, int] | None:
+    """(tx hash, nanoGRAM) of a successful incoming transfer of >= min_value carrying comment, or None."""
     try:
         # oldest first: the payment lands right after since_utime, so it is on the first page.
         # shortcut: only 100 txs are scanned; paginate if an artist uses a very busy (exchange) wallet
@@ -54,7 +55,10 @@ def find_incoming_comment(address: str, comment: str, since_utime: int) -> tuple
     for tx in transactions:
         msg = tx.get("in_msg") or {}
         decoded = (msg.get("message_content") or {}).get("decoded") or {}
-        # aborted = bounced back (e.g. bounceable transfer to an uninitialized wallet)
-        if msg.get("source") and decoded.get("comment") == comment and not tx["description"].get("aborted"):
+        # aborted = bounced back (e.g. bounceable transfer to an uninitialized wallet); unknown counts as aborted.
+        # min_value stops a dust tx with a copied comment from consuming someone's donation.
+        if (msg.get("source") and decoded.get("comment") == comment
+                and not (tx.get("description") or {}).get("aborted", True)
+                and int(msg["value"]) >= min_value):
             return tx["hash"], int(msg["value"])
     return None

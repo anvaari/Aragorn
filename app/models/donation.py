@@ -17,7 +17,7 @@ class StarsDonation(BaseModel):
 
 
 class GramDonation(BaseModel):
-    amount: Decimal = Field(gt=0, decimal_places=9)
+    amount: Decimal = Field(gt=0, le=1_000_000, decimal_places=9)
 
 
 class UsdcDonation(BaseModel):
