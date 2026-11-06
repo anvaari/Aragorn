@@ -1,8 +1,9 @@
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from telegram_bot.callbacks import (DayCB, EventCB, MenuCB, RemindDelCB,
-                                    RemindHoursCB, RemindSetCB)
+from core.config import app_settings
+from telegram_bot.callbacks import (ArtistReviewCB, DayCB, EventCB, MenuCB,
+                                    RemindDelCB, RemindHoursCB, RemindSetCB)
 from utils.event_time import jday_short_label
 
 _MAX_BUTTON_TITLE = 48
@@ -16,6 +17,21 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
     )
     builder.row(
         InlineKeyboardButton(text="🔔 یادآورها", callback_data=MenuCB(action="reminders").pack()),
+    )
+    miniapp_url = app_settings.miniapp_url.strip()
+    if miniapp_url.startswith("https://"):  # Telegram rejects the whole message for a non-HTTPS web_app URL
+        builder.row(InlineKeyboardButton(
+            text="🎨 حمایت از هنرمندان", web_app=WebAppInfo(url=miniapp_url)))
+    return builder.as_markup()
+
+
+def artist_review_keyboard(artist_id: int, revision: int) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="✅ تأیید", callback_data=ArtistReviewCB(
+            artist_id=artist_id, revision=revision, approve=True).pack()),
+        InlineKeyboardButton(text="❌ رد", callback_data=ArtistReviewCB(
+            artist_id=artist_id, revision=revision, approve=False).pack()),
     )
     return builder.as_markup()
 

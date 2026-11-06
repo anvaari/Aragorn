@@ -1,4 +1,4 @@
-"""Text cards for bot DMs (event card, new-event alert, reminder ping)."""
+"""Text cards for bot DMs (event card, new-event alert, reminder ping, donations)."""
 import re
 
 from models.event import EventCreate
@@ -55,4 +55,50 @@ def format_reminder_ping(event_title: str, event_datetime: str | None,
         lines.append(_location_part(location))
     lines.append("")
     lines.append("🎶 به‌زودی شروع می‌شود!")
+    return "\n".join(lines)
+
+
+_DONATION_UNITS = {"XTR": "استارز ⭐️", "GRAM": "GRAM 💎", "USDC": "USDC 💵"}
+
+
+def _escape_user_md(text: str) -> str:
+    """Escape every legacy-Markdown marker in free text users type (names, bios)."""
+    return re.sub(r"([_*`\[])", r"\\\1", text)
+
+
+def format_artist_claim(artist: dict) -> str:
+    """Admin review card for a new or edited artist profile."""
+    lines = [
+        "🎨 *درخواست تأیید هنرمند*",
+        "",
+        f"👤 {_escape_user_md(artist['name'])}",
+        f"🆔 `{artist['chat_id']}`" + (f" — @{_escape_md(artist['username'])}" if artist["username"] else ""),
+    ]
+    if artist["bio"]:
+        lines.append(f"📝 {_escape_user_md(artist['bio'])}")
+    if artist["ton_address"]:
+        lines.append(f"💎 GRAM: `{artist['ton_address']}`")
+    if artist["evm_address"]:
+        lines.append(f"💵 USDC (Base): `{artist['evm_address']}`")
+    return "\n".join(lines)
+
+
+def format_artist_review_result(approved: bool, share_link: str) -> str:
+    if not approved:
+        return ("❌ درخواست پروفایل هنرمندی شما تأیید نشد.\n\n"
+                "می‌توانید اطلاعات را در مینی‌اپ اصلاح کنید و دوباره بفرستید.")
+    return ("✅ *پروفایل هنرمندی شما تأیید شد!*\n\n"
+            "این لینک را با طرفدارانتان به اشتراک بگذارید تا از شما حمایت کنند:\n"
+            f"`{share_link}`")
+
+
+def format_donation_received(asset: str, amount: str) -> str:
+    lines = [
+        "🎉 *حمایت جدید!*",
+        "",
+        f"یک حامی {fa_digits(amount)} {_DONATION_UNITS[asset]} برای شما فرستاد. 🎶",
+    ]
+    if asset == "XTR":
+        lines.append("")
+        lines.append("_استارزها در حساب ربات آراگورن جمع می‌شوند و ادمین با شما تسویه می‌کند._")
     return "\n".join(lines)

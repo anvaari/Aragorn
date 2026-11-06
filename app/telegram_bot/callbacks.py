@@ -24,3 +24,9 @@ class RemindHoursCB(CallbackData, prefix="remh"):
 
 class RemindDelCB(CallbackData, prefix="remd"):
     reminder_id: int
+
+
+class ArtistReviewCB(CallbackData, prefix="artrev"):
+    artist_id: int
+    revision: int  # the profile revision the admin saw
+    approve: bool

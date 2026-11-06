@@ -195,6 +195,36 @@ curl -X POST "http://localhost:8000/api/v1/manual_event" \
   }'
 ```
 
+## 🎨 Mini App: events, reminders and artist donations
+
+A Telegram Mini App, opened from the bot's main menu. It has three tabs: this week's events (with "remind me", the same reminders the bot sets), your reminders, and an artists shelf. On the shelf, independent artists claim a profile and fans support them with real money:
+
+| Rail | How it pays | Where the money goes |
+|---|---|---|
+| ⭐️ **Telegram Stars** | Native Stars invoice inside Telegram | The bot's Stars balance; the admin settles with the artist (Telegram has no Stars payout to users) |
+| 💎 **GRAM** (TON, formerly Toncoin) | TON Connect (Telegram Wallet, Tonkeeper, …) | Straight to the artist's TON wallet; verified on-chain by its comment |
+| 💵 **USDC on Base** | Any wallet or exchange; donor pastes the tx hash | Straight to the artist's Base wallet; verified from the tx receipt |
+
+Artist profiles stay hidden until the admin approves them from a bot DM, and every edit sends the profile back for review.
+
+### Setup
+
+1. Serve the app over **HTTPS** (Telegram requires it). For local testing, a tunnel such as `cloudflared tunnel --url http://localhost:8000` works.
+2. Set in `.env`:
+
+   ```env
+   miniapp_url=https://your-domain/miniapp/
+   bot_admin_chat_id=your_numeric_telegram_id
+   ```
+
+   Keep the trailing `/` on `miniapp_url` (`/miniapp` redirects, which can drop to `http` behind a TLS proxy). Send `/start` to the bot once from the admin account, or claim notifications can't reach you.
+
+3. In [@BotFather](https://t.me/BotFather): *Bot Settings → Configure Mini App → Enable Mini App* with the same `miniapp_url`. This makes the share links artists receive on approval (`https://t.me/<bot>?startapp=artist_<id>`) open the app directly.
+
+Run the self-checks with `python tests/test_donations.py`.
+
+> ⚠️ Before going live, review Telegram's [Stars payment rules](https://core.telegram.org/bots/payments-stars) (e.g. a `/terms` command) and whether collecting Stars for third parties fits your use.
+
 ## 🛠️ Development
 
 ### Project Structure
