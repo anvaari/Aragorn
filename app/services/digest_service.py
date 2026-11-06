@@ -8,6 +8,7 @@ from db.crud_event import get_events_by_jdate_with_tg_message_ids
 from log.logger import get_app_logger
 from telegram.bot import send_text_to_telegram
 from telegram.event_formatter import format_events_digest
+from utils.event_time import jdate_fa
 
 logger = get_app_logger(__name__)
 
@@ -31,8 +32,7 @@ def _post_link(tg_message_id: int | None) -> str | None:
 def send_events_digest(day_offset: int) -> dict:
     jdate, weekday_fa = _target_jdate(day_offset)
     label = _DAY_LABELS.get(day_offset, f"{day_offset} روز دیگر")
-    # Date first + code span so RTL clients can't render 1405-08-14 backwards.
-    day_label = f"`{jdate}` — *رویدادهای {label}* {weekday_fa}"
+    day_label = f"{label} — {weekday_fa} {jdate_fa(jdate)}"
 
     rows = get_events_by_jdate_with_tg_message_ids(jdate)
     if not rows:

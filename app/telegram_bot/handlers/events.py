@@ -22,10 +22,11 @@ router = Router()
 
 _REMINDER_HOURS = (2, 24)  # "هر دو" creates both
 
+# Slash-separated examples on purpose: the bidi algorithm reverses hyphenated
+# numbers inside RTL text ('1405-08-25' -> '25-08-1405'); slashes are safe.
 _DATE_PROMPT_TEXT = (
     "📅 *تاریخ شمسی را بنویسید*\n\n"
-    "مثال: `1405-08-25`\n"
-    "با ارقام فارسی هم می‌شود: `۱۴۰۵/۰۸/۲۵`"
+    "مثال: ۱۴۰۵/۰۸/۲۵ یا 1405/08/25"
 )
 
 _DATE_LIKE_RE = re.compile(r"^[\d۰-۹٠-٩\s\-/.]+$")
@@ -41,9 +42,9 @@ def _day_view(jdate: str, label: str):
     events = get_events_by_jdate_with_ids(jdate)
     if not events:
         return f"🗓 {label}\n\n_برای این روز رویدادی ثبت نشده است._", day_picker_keyboard()
-    lines = [f"🗓 {label} — {fa_digits(len(events))} رویداد", ""]
+    lines = [f"🗓 *رویدادهای* {label} — {fa_digits(len(events))} رویداد", ""]
     for _event_id, event in events:
-        lines.append(f"• {_escape_md(event.title or 'بدون عنوان')} — `{event.time}`")
+        lines.append(f"• {_escape_md(event.title or 'بدون عنوان')} — {fa_digits(event.time)}")
     return "\n".join(lines), day_events_keyboard(events)
 
 
@@ -72,7 +73,7 @@ async def search_by_date(message: Message) -> None:
     jdate = parse_shamsi_date(message.text)
     if jdate is None:
         if _looks_like_date(message.text or ""):
-            await message.answer("😕 تاریخ معتبر نیست. نمونه: `1405-08-25`")
+            await message.answer("😕 تاریخ معتبر نیست. نمونه: ۱۴۰۵/۰۸/۲۵")
         return
     text, keyboard = _day_view(jdate, jdate_full_label(jdate))
     await message.answer(text, reply_markup=keyboard)

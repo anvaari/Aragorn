@@ -1,5 +1,6 @@
 from models.event import EventCreate
 from log.logger import get_app_logger
+from utils.event_time import fa_digits, format_jdatetime
 import re
 
 logger = get_app_logger(__name__)
@@ -36,7 +37,7 @@ def format_event_for_telegram(event:EventCreate) -> str:
 
 
     🗓️ *زمان:* 
-        `{event.datetime}`
+        {format_jdatetime(event.datetime)}
     {"\n"+desc+"\n" if desc else ""}
     📍 {loc}
 
@@ -69,7 +70,7 @@ def format_events_digest(events: list[EventCreate], day_label: str,
     event_blocks = []
     for event, link in zip(events, post_links):
         time_part = ("ساعت نامشخص" if event.time == UNKNOWN_TIME
-                     else f"`{event.time}`")
+                     else f"ساعت {fa_digits(event.time)}")
         if re.match(LOC_PATTERN, event.location):
             location = f"[لینک گوگل مپ](https://www.google.com/maps?q={event.location})"
         else:
@@ -80,7 +81,7 @@ def format_events_digest(events: list[EventCreate], day_label: str,
             block += f"📸 [لینک اینستاگرام]({event.instagram_link})\n"
         event_blocks.append(block)
 
-    header = f"🗓️ {day_label}\n"
+    header = f"🗓️ *رویدادهای {day_label}*\n"
     text = header
     included = 0
     for block in event_blocks:

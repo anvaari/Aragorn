@@ -24,8 +24,23 @@ _EN_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567
 
 _SHAMSI_DATE_RE = re.compile(r"^(\d{4})\s*[-/.]\s*(\d{1,2})\s*[-/.]\s*(\d{1,2})$")
 
+# Invisible bidi marks (LRM/RLM/embeds/isolates) ride along when users copy a
+# date out of a Persian message; strip them before parsing.
+_BIDI_STRIP = dict.fromkeys(
+    [0x200E, 0x200F, *range(0x202A, 0x202F), *range(0x2066, 0x206A)])
+
 def fa_digits(text: str | int) -> str:
     return str(text).translate(_FA_DIGITS)
+
+# Bidi-safe rendering: the Unicode bidi algorithm reverses hyphenated numeric
+# runs embedded in RTL text ('1405-08-25' displays as '25-08-1405'), while '/'
+# and ':' merge into the number run correctly. So: spell dates with a month
+# name (numbers never form one run), and use slashes in numeric examples.
+
+def jdate_fa(jdate: str) -> str:
+    """'1405-08-25' -> '۲۵ آبان ۱۴۰۵' (bidi-safe: words separate the numbers)."""
+    year, month, day = (int(part) for part in jdate.split("-"))
+    return f"{fa_digits(day)} {_JMONTHS_FA[month - 1]} {fa_digits(year)}"
 
 def en_digits(text: str) -> str:
     """Convert Persian/Arabic-Indic digits to ASCII digits."""
@@ -39,7 +54,8 @@ def parse_shamsi_date(text: str | None) -> str | None:
     """
     if not text:
         return None
-    match = _SHAMSI_DATE_RE.match(en_digits(text).strip())
+    cleaned = en_digits(text).translate(_BIDI_STRIP).strip()
+    match = _SHAMSI_DATE_RE.match(cleaned)
     if not match:
         return None
     year, month, day = (int(part) for part in match.groups())
@@ -52,20 +68,15 @@ def parse_shamsi_date(text: str | None) -> str | None:
     return f"{year:04d}-{month:02d}-{day:02d}"
 
 def jdate_full_label(jdate: str) -> str:
-    """Human label for a Shamsi 'YYYY-MM-DD': '`۱۴۰۵-۰۸-۲۵` — جمعه'.
-
-    The date leads the line and sits in a Markdown code span: a leading digit
-    makes the Unicode paragraph LTR, so RTL clients can't display 1405-08-25
-    as 25-08-1405.
-    """
+    """Human label for a Shamsi 'YYYY-MM-DD': 'جمعه ۲۵ آبان ۱۴۰۵'."""
     try:
         year, month, day = (int(part) for part in jdate.split("-"))
         weekday_fa = jdatetime.date.j_weekdays_fa[
             jdatetime.date(year, month, day).isoweekday() - 1]
     except (ValueError, TypeError):
-        return f"`{fa_digits(jdate)}`"
+        return fa_digits(jdate)
     normalized = f"{year:04d}-{month:02d}-{day:02d}"
-    return f"`{fa_digits(normalized)}` — {weekday_fa}"
+    return f"{weekday_fa} {jdate_fa(normalized)}"
 
 def tehran_tz() -> ZoneInfo:
     return ZoneInfo(app_settings.digest_timezone)
@@ -120,7 +131,7 @@ def jday_short_label(day_offset: int) -> str:
     return f"{weekday_fa} {fa_digits(int(day))} {_JMONTHS_FA[int(month) - 1]}"
 
 def jday_full_label(day_offset: int) -> str:
-    """Header label: '`1404-07-03` — امروز جمعه' (date first for LTR rendering)."""
+    """Header label: 'امروز — جمعه ۱۵ آبان ۱۴۰۵'."""
     jdate, weekday_fa = jdate_for_offset(day_offset)
     if day_offset == 0:
         prefix = "امروز"
@@ -128,7 +139,7 @@ def jday_full_label(day_offset: int) -> str:
         prefix = "فردا"
     else:
         prefix = f"{fa_digits(day_offset)} روز دیگر"
-    return f"`{fa_digits(jdate)}` — {prefix} {weekday_fa}"
+    return f"{prefix} — {weekday_fa} {jdate_fa(jdate)}"
 
 def format_jdatetime(value: str | None) -> str:
     """Human display for an events.datetime string, Persian digits, weekday included."""
@@ -138,5 +149,5 @@ def format_jdatetime(value: str | None) -> str:
     jd = jdatetime.date.fromgregorian(date=dt.date())
     weekday_fa = jdatetime.date.j_weekdays_fa[jd.isoweekday() - 1]
     jdate = f"{jd.year:04d}-{jd.month:02d}-{jd.day:02d}"
-    return (f"`{fa_digits(jdate)}` — {weekday_fa} — "
-            f"ساعت `{fa_digits(dt.strftime('%H:%M'))}`")
+    return (f"{weekday_fa} {jdate_fa(jdate)} "
+            f"ساعت {fa_digits(dt.strftime('%H:%M'))}")
