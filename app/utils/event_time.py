@@ -52,10 +52,11 @@ def parse_shamsi_date(text: str | None) -> str | None:
     return f"{year:04d}-{month:02d}-{day:02d}"
 
 def jdate_full_label(jdate: str) -> str:
-    """Human label for a Shamsi 'YYYY-MM-DD': 'جمعه `۱۴۰۵-۰۸-۲۵`'.
+    """Human label for a Shamsi 'YYYY-MM-DD': '`۱۴۰۵-۰۸-۲۵` — جمعه'.
 
-    The date is wrapped in a Markdown code span: Telegram renders code LTR,
-    which stops RTL clients from displaying it as 25-08-1405.
+    The date leads the line and sits in a Markdown code span: a leading digit
+    makes the Unicode paragraph LTR, so RTL clients can't display 1405-08-25
+    as 25-08-1405.
     """
     try:
         year, month, day = (int(part) for part in jdate.split("-"))
@@ -64,7 +65,7 @@ def jdate_full_label(jdate: str) -> str:
     except (ValueError, TypeError):
         return f"`{fa_digits(jdate)}`"
     normalized = f"{year:04d}-{month:02d}-{day:02d}"
-    return f"{weekday_fa} `{fa_digits(normalized)}`"
+    return f"`{fa_digits(normalized)}` — {weekday_fa}"
 
 def tehran_tz() -> ZoneInfo:
     return ZoneInfo(app_settings.digest_timezone)
@@ -119,7 +120,7 @@ def jday_short_label(day_offset: int) -> str:
     return f"{weekday_fa} {fa_digits(int(day))} {_JMONTHS_FA[int(month) - 1]}"
 
 def jday_full_label(day_offset: int) -> str:
-    """Header label: 'امروز — جمعه 1404-07-03'."""
+    """Header label: '`1404-07-03` — امروز جمعه' (date first for LTR rendering)."""
     jdate, weekday_fa = jdate_for_offset(day_offset)
     if day_offset == 0:
         prefix = "امروز"
@@ -127,7 +128,7 @@ def jday_full_label(day_offset: int) -> str:
         prefix = "فردا"
     else:
         prefix = f"{fa_digits(day_offset)} روز دیگر"
-    return f"{prefix} — {weekday_fa} `{fa_digits(jdate)}`"
+    return f"`{fa_digits(jdate)}` — {prefix} {weekday_fa}"
 
 def format_jdatetime(value: str | None) -> str:
     """Human display for an events.datetime string, Persian digits, weekday included."""
@@ -137,5 +138,5 @@ def format_jdatetime(value: str | None) -> str:
     jd = jdatetime.date.fromgregorian(date=dt.date())
     weekday_fa = jdatetime.date.j_weekdays_fa[jd.isoweekday() - 1]
     jdate = f"{jd.year:04d}-{jd.month:02d}-{jd.day:02d}"
-    return (f"{weekday_fa} `{fa_digits(jdate)}` "
+    return (f"`{fa_digits(jdate)}` — {weekday_fa} — "
             f"ساعت `{fa_digits(dt.strftime('%H:%M'))}`")

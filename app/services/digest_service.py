@@ -31,7 +31,8 @@ def _post_link(tg_message_id: int | None) -> str | None:
 def send_events_digest(day_offset: int) -> dict:
     jdate, weekday_fa = _target_jdate(day_offset)
     label = _DAY_LABELS.get(day_offset, f"{day_offset} روز دیگر")
-    day_label = f"{label} — {weekday_fa} {jdate}"
+    # Date first + code span so RTL clients can't render 1405-08-14 backwards.
+    day_label = f"`{jdate}` — *رویدادهای {label}* {weekday_fa}"
 
     rows = get_events_by_jdate_with_tg_message_ids(jdate)
     if not rows:

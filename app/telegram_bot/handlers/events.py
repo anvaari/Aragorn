@@ -12,9 +12,9 @@ from telegram_bot.cards import _escape_md, format_event_card
 from telegram_bot.handlers.common import DAY_PICKER_TEXT, safe_edit
 from telegram_bot.keyboards import (day_events_keyboard, day_picker_keyboard,
                                     event_card_keyboard, reminder_choice_keyboard)
-from utils.event_time import (event_remind_at, jdate_for_offset, jdate_full_label,
-                              jday_full_label, now_tehran, parse_event_datetime,
-                              parse_shamsi_date)
+from utils.event_time import (event_remind_at, fa_digits, jdate_for_offset,
+                              jdate_full_label, jday_full_label, now_tehran,
+                              parse_event_datetime, parse_shamsi_date)
 
 logger = get_app_logger(__name__)
 
@@ -41,9 +41,9 @@ def _day_view(jdate: str, label: str):
     events = get_events_by_jdate_with_ids(jdate)
     if not events:
         return f"🗓 {label}\n\n_برای این روز رویدادی ثبت نشده است._", day_picker_keyboard()
-    lines = [f"🗓 *رویدادهای* {label} — {len(events)} رویداد", ""]
+    lines = [f"🗓 {label} — {fa_digits(len(events))} رویداد", ""]
     for _event_id, event in events:
-        lines.append(f"• {_escape_md(event.title or 'بدون عنوان')} — {event.time}")
+        lines.append(f"• {_escape_md(event.title or 'بدون عنوان')} — `{event.time}`")
     return "\n".join(lines), day_events_keyboard(events)
 
 

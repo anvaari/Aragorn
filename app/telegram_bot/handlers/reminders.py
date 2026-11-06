@@ -22,7 +22,7 @@ def _build_reminders_text(chat_id: int) -> tuple[str, list[dict]]:
         for reminder in reminders:
             title = reminder.get("event_title") or "رویداد"
             when = format_jdatetime(reminder.get("remind_at"))
-            lines.append(f"⏰ {_escape_md(title)} — {when}")
+            lines.append(f"⏰ {when} — {_escape_md(title)}")
     else:
         lines.append("_یادآوری رویدادی ثبت نکرده‌اید._")
     lines.append("")
