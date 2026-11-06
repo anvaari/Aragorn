@@ -26,11 +26,15 @@ from types import SimpleNamespace  # noqa: E402
 
 from fastapi import HTTPException  # noqa: E402
 
+from api.v1.endpoints import miniapp  # noqa: E402
 from api.v1.endpoints.miniapp import verify_init_data  # noqa: E402
 from core.config import app_settings  # noqa: E402
 from db import crud_donation  # noqa: E402
+from db.crud_event import insert_event  # noqa: E402
+from models.event import EventCreate  # noqa: E402
 from payments import ton, usdc  # noqa: E402
-from services import donation_service  # noqa: E402
+from services import donation_service, reminder_service  # noqa: E402
+from utils.event_time import jdate_for_offset  # noqa: E402
 from services.donation_service import human_amount  # noqa: E402
 from telegram_bot.keyboards import main_menu_keyboard  # noqa: E402
 
@@ -174,6 +178,40 @@ def test_claim_review_and_ledger():
     assert totals == {"GRAM": (1_500_000_000, 1), "XTR": (100, 1)}
     assert (human_amount("GRAM", 1_500_000_000), human_amount("XTR", 100), human_amount("USDC", 5_000_000)) \
         == ("1.5", "100", "5")
+
+
+def test_miniapp_events_and_reminders():
+    # Runs after test_claim_review_and_ledger, which approves "Famous Artist" (chat 1001).
+    def add_event(day_offset: int) -> int:
+        jdate, _ = jdate_for_offset(day_offset)
+        return insert_event(EventCreate(
+            title="Gig", date=jdate, time="21:00", description="", location="35.7, 51.4",
+            performers="Famous Artist & friends", ticket_info="", instagram_link=""))
+    user, stranger = SimpleNamespace(id=3003), SimpleNamespace(id=4004)
+    event_id = add_event(2)  # 24h-before still lies in the future whatever the clock says
+    assert reminder_service.set_event_reminders(user.id, event_id, 0) == 2
+    assert reminder_service.set_event_reminders(user.id, event_id, 2) == 0  # already set
+    for missing_or_past in (999_999, add_event(-1)):
+        try:
+            reminder_service.set_event_reminders(user.id, missing_or_past, 2)
+            raise AssertionError("expected ValueError")
+        except ValueError:
+            pass
+
+    event = next(e for e in miniapp.upcoming_events(user)[2]["events"] if e["id"] == event_id)
+    assert event["reminded"] and event["maps_link"].endswith("35.7, 51.4")
+    assert event["artist_id"] == crud_donation.get_artist_by_chat(1001)["id"]
+    assert not next(e for e in miniapp.upcoming_events(stranger)[2]["events"] if e["id"] == event_id)["reminded"]
+
+    reminders = miniapp.my_reminders(user)
+    assert sorted(r["hours"] for r in reminders) == [2, 24]
+    try:
+        miniapp.delete_my_reminder(reminders[0]["id"], stranger)  # not theirs
+        raise AssertionError("expected 404")
+    except HTTPException as e:
+        assert e.status_code == 404
+    miniapp.delete_my_reminder(reminders[0]["id"], user)
+    assert len(miniapp.my_reminders(user)) == 1
 
 
 if __name__ == "__main__":

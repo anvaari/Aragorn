@@ -67,6 +67,8 @@ expected = sorted([
     "GET /api/v1/miniapp/tonconnect-manifest.json", "POST /api/v1/miniapp/donations/{donation_id}/verify",
     "POST /api/v1/miniapp/artists/{artist_id}/gram", "POST /api/v1/miniapp/artists/{artist_id}/stars",
     "POST /api/v1/miniapp/artists/{artist_id}/usdc",
+    "GET /api/v1/miniapp/events", "POST /api/v1/miniapp/events/{event_id}/reminders",
+    "GET /api/v1/miniapp/reminders", "DELETE /api/v1/miniapp/reminders/{reminder_id}",
 ])
 ok = d["info"]["title"].startswith("Aragorn") and paths == expected
 print(("PASS: " if ok else "FAIL: ") + f"openapi title={d['info']['title']!r} paths={paths}")

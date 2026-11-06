@@ -1,5 +1,12 @@
+from typing import Literal
+
 from pydantic import BaseModel
 from utils.google_calendar import event_to_google_calendar_link
+
+
+class EventReminder(BaseModel):
+    hours: Literal[0, 2, 24]  # 0 = both 2h and 24h before
+
 class EventCreate(BaseModel):
     title: str
     date: str

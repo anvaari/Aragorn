@@ -195,9 +195,9 @@ curl -X POST "http://localhost:8000/api/v1/manual_event" \
   }'
 ```
 
-## 🎨 Artist Donations Mini App
+## 🎨 Mini App: events, reminders and artist donations
 
-A Telegram Mini App (opened from the bot's main menu) where independent artists claim a profile and fans support them with real money:
+A Telegram Mini App, opened from the bot's main menu. It has three tabs: this week's events (with "remind me", the same reminders the bot sets), your reminders, and an artists shelf. On the shelf, independent artists claim a profile and fans support them with real money:
 
 | Rail | How it pays | Where the money goes |
 |---|---|---|

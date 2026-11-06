@@ -4,23 +4,20 @@ from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
 
-from db import crud_bot
 from db.crud_event import get_event_by_id, get_events_by_jdate_with_ids
 from log.logger import get_app_logger
+from services.reminder_service import REMINDER_HOURS, set_event_reminders
 from telegram_bot.callbacks import DayCB, EventCB, MenuCB, RemindHoursCB, RemindSetCB
 from telegram_bot.cards import _escape_md, format_event_card
 from telegram_bot.handlers.common import DAY_PICKER_TEXT, safe_edit
 from telegram_bot.keyboards import (day_events_keyboard, day_picker_keyboard,
                                     event_card_keyboard, reminder_choice_keyboard)
-from utils.event_time import (event_remind_at, fa_digits, jdate_for_offset,
-                              jdate_full_label, jday_full_label, now_tehran,
-                              parse_event_datetime, parse_shamsi_date)
+from utils.event_time import (fa_digits, jdate_for_offset, jdate_full_label,
+                              jday_full_label, parse_shamsi_date)
 
 logger = get_app_logger(__name__)
 
 router = Router()
-
-_REMINDER_HOURS = (2, 24)  # "هر دو" creates both
 
 # Slash-separated examples on purpose: the bidi algorithm reverses hyphenated
 # numbers inside RTL text ('1405-08-25' -> '25-08-1405'); slashes are safe.
@@ -114,26 +111,14 @@ async def set_reminder(callback: CallbackQuery, callback_data: RemindHoursCB) ->
     if callback.message is None:
         await callback.answer()
         return
-    event_dt = parse_event_datetime(event.datetime)
-    if event_dt is None:
-        await callback.answer(
-            "😕 زمان این رویداد مشخص نیست و یادآوری ممکن نیست.", show_alert=True)
-        return
-    if event_dt <= now_tehran():
-        await callback.answer("🕰 این رویداد گذشته یا در حال برگزاری است.", show_alert=True)
+    try:
+        created = set_event_reminders(
+            callback.message.chat.id, callback_data.event_id, callback_data.hours)
+    except ValueError as e:
+        await callback.answer(str(e), show_alert=True)
         return
 
-    hours_list = _REMINDER_HOURS if callback_data.hours == 0 else (callback_data.hours,)
-    created = 0
-    for hours in hours_list:
-        remind_dt = event_remind_at(event_dt, hours)
-        if remind_dt <= now_tehran():
-            continue
-        if crud_bot.add_event_reminder(
-                callback.message.chat.id, callback_data.event_id,
-                remind_at=remind_dt.strftime("%Y-%m-%d %H:%M")):
-            created += 1
-
+    hours_list = REMINDER_HOURS if callback_data.hours == 0 else (callback_data.hours,)
     if created:
         chosen = " و ".join(f"{hours} ساعت قبل" for hours in hours_list)
         try:

@@ -1,13 +1,20 @@
-"""JSON API behind the donations Mini App (app/miniapp/index.html)."""
+"""JSON API behind the Mini App (app/miniapp/index.html): events, reminders, artist donations."""
+import re
 from datetime import datetime, timedelta, timezone
 
 from aiogram.utils.web_app import WebAppUser, safe_parse_webapp_init_data
 from fastapi import APIRouter, Depends, Header, HTTPException
 
 from core.config import app_settings
-from db import crud_donation
+from db import crud_bot, crud_donation
+from db.crud_event import get_events_by_jdate_with_ids
 from models.donation import ArtistClaim, GramDonation, StarsDonation, UsdcDonation
-from services import donation_service
+from models.event import EventCreate, EventReminder
+from services import donation_service, reminder_service
+from telegram.event_formatter import LOC_PATTERN
+from utils.event_time import format_jdatetime, jdate_fa, jdate_for_offset
+
+_DAYS_AHEAD = 7  # the day strip on the Mini App's home screen
 
 router = APIRouter()
 
@@ -31,12 +38,60 @@ def _approved_artist(artist_id: int) -> dict:
         raise HTTPException(404, "هنرمند پیدا نشد.")
     return artist
 
+def _event_json(event_id: int, event: EventCreate, reminded: set[int], artists: list[dict]) -> dict:
+    try:
+        calendar_link = event.google_calendar_link
+    except ValueError:  # datetime the Shamsi parser rejects
+        calendar_link = ""
+    is_coords = bool(re.match(LOC_PATTERN, event.location))
+    return {
+        "id": event_id, **event.model_dump(),
+        "google_calendar_link": calendar_link,
+        "maps_link": f"https://www.google.com/maps?q={event.location}" if is_coords else "",
+        "reminded": event_id in reminded,
+        # shortcut: name-in-performers match can link the wrong artist for very short names; store artist ids on events to fix
+        "artist_id": next((a["id"] for a in artists if a["name"] in event.performers), None),
+    }
+
 
 @router.get("/tonconnect-manifest.json")
 def tonconnect_manifest():
     # Public on purpose: wallets fetch it to show who is asking to connect.
     base = app_settings.miniapp_url.rstrip("/")
     return {"url": base, "name": "Aragorn", "iconUrl": f"{base}/icon.png"}
+
+@router.get("/events")
+def upcoming_events(user: WebAppUser = Depends(verify_init_data)):
+    """Today and the next six days (Shamsi), each with its events."""
+    reminded = {r["event_id"] for r in crud_bot.get_user_reminders(user.id)}
+    artists = crud_donation.get_approved_artists()
+    days = []
+    for offset in range(_DAYS_AHEAD):
+        jdate, weekday = jdate_for_offset(offset)
+        days.append({"jdate": jdate, "weekday": weekday, "date_fa": jdate_fa(jdate), "events": [
+            _event_json(event_id, event, reminded, artists)
+            for event_id, event in get_events_by_jdate_with_ids(jdate)]})
+    return days
+
+@router.post("/events/{event_id}/reminders")
+def set_event_reminder(event_id: int, body: EventReminder, user: WebAppUser = Depends(verify_init_data)):
+    try:
+        return {"created": reminder_service.set_event_reminders(user.id, event_id, body.hours)}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+@router.get("/reminders")
+def my_reminders(user: WebAppUser = Depends(verify_init_data)):
+    return [{"id": r["id"], "event_id": r["event_id"], "title": r["event_title"] or "رویداد",
+             "when": format_jdatetime(r["event_datetime"]), "location": r["event_location"] or "",
+             "hours": reminder_service.hours_before(r["event_datetime"], r["remind_at"])}
+            for r in crud_bot.get_user_reminders(user.id)]
+
+@router.delete("/reminders/{reminder_id}")
+def delete_my_reminder(reminder_id: int, user: WebAppUser = Depends(verify_init_data)):
+    if not crud_bot.delete_reminder(reminder_id, user.id):
+        raise HTTPException(404, "یادآوری پیدا نشد.")
+    return {"deleted": True}
 
 @router.get("/artists")
 def list_artists(user: WebAppUser = Depends(verify_init_data)):

@@ -3,72 +3,284 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>آرگورن — حمایت از هنرمندان</title>
+  <title>آرگورن</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <!-- Pinned + SRI: this script builds the wallet transfer, so a tampered copy must not load. -->
   <script src="https://unpkg.com/@tonconnect/ui@5.0.1/dist/tonconnect-ui.min.js"
           integrity="sha384-QZvMrS6g6/TQyHjoc44P3RG1Kzfqnwen5A/EZ0LaQZKP8hvNY2stUmyFB5QDIKmp"
           crossorigin="anonymous"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lalezar&family=Vazirmatn:wght@400;500;700;800&display=swap">
   <style>
+    /* "Shab-neshini" style tile: night band + lamp saffron over warm paper. */
     :root {
-      --bg: var(--tg-theme-bg-color, #ffffff);
-      --text: var(--tg-theme-text-color, #1c1c1e);
-      --hint: var(--tg-theme-hint-color, #8e8e93);
-      --card: var(--tg-theme-secondary-bg-color, #f2f2f7);
-      --line: var(--tg-theme-section-separator-color, #d1d1d6);
-      --accent: var(--tg-theme-button-color, #2ea6ff);
-      --accent-text: var(--tg-theme-button-text-color, #ffffff);
+      --night: #2B1F3A; --on-night: #F7EBDD; --on-night-muted: #C9B8D6;
+      --paper: #F4ECE0; --card: #FFF9F0; --field: #FFFFFF; --ink: #2A2030; --muted: #6E6170;
+      --line: #E2D5C2; --dash: #CDBBA3;
+      --pom: #B5372F; --hot: #B5372F; --pom-soft: #F9E3DE; --pom-text: #9C2E27;
+      --teal: #1D6F6A; --link: #1D6F6A; --saffron: #F2B441; --wood: #8A5A3B;
+      --display: Lalezar, Vazirmatn, Tahoma, sans-serif;
+      color-scheme: light;
+    }
+    [data-theme="dark"] {
+      --paper: #1E1828; --card: #2A2236; --field: #231C2E; --ink: #F4ECE0; --muted: #B3A6BC;
+      --line: #3D3249; --dash: #56486A; --hot: #F08A7E; --pom-soft: #3C2230; --pom-text: #F0A39A; --link: #6FCFC3;
+      color-scheme: dark;
     }
     * { box-sizing: border-box; }
-    body { margin: 0; padding: 12px 16px 32px; background: var(--bg); color: var(--text);
-           font: 15px/1.6 -apple-system, "Segoe UI", Tahoma, sans-serif; }
-    h1 { font-size: 20px; margin: 4px 0 12px; }
-    h2 { font-size: 18px; margin: 0 0 4px; }
-    h3 { font-size: 15px; margin: 0 0 8px; }
-    p { margin: 4px 0; }
-    nav { display: flex; gap: 8px; margin-bottom: 12px; }
-    button { font: inherit; cursor: pointer; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.7 Vazirmatn, Tahoma, sans-serif; }
+    h1, h2, h3, p { margin: 0; }
+    button, input, textarea { font: inherit; color: inherit; }
+    button { cursor: pointer; }
     button:disabled { opacity: .6; }
-    .tab { flex: 1; padding: 10px; border: 0; border-radius: 12px; background: var(--card); color: var(--text); }
-    .tab.active { background: var(--accent); color: var(--accent-text); }
-    .card { display: block; width: 100%; margin-bottom: 12px; padding: 14px; border: 0; border-radius: 14px;
-            background: var(--card); color: inherit; text-align: start; }
-    .artist strong { display: block; font-size: 16px; }
-    .hint { color: var(--hint); font-size: 13px; }
-    label { display: block; color: var(--hint); font-size: 13px; }
-    input, textarea { width: 100%; margin: 6px 0 10px; padding: 10px 12px; border: 1px solid var(--line);
-                      border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; }
-    .row { display: flex; gap: 8px; }
-    .chip { flex: 1; padding: 8px; border: 1px solid var(--accent); border-radius: 10px;
-            background: transparent; color: var(--accent); }
-    .primary { width: 100%; padding: 12px; border: 0; border-radius: 12px; background: var(--accent);
-               color: var(--accent-text); font-weight: 600; }
-    .address { width: 100%; margin: 6px 0; padding: 10px; border: 1px dashed var(--line); border-radius: 10px;
-               background: var(--bg); color: var(--text); font: 13px ui-monospace, monospace;
-               word-break: break-all; user-select: all; }
-    .badge { padding: 2px 10px; border-radius: 999px; background: var(--bg); }
-    .badge.approved { color: #2e9e5b; }
-    .badge.rejected { color: #d9443a; }
-    .status { text-align: center; font-weight: 600; }
+    a { color: var(--link); }
+    :focus-visible { outline: 3px solid var(--saffron); outline-offset: 2px; }
+    #view { max-width: 480px; margin: 0 auto; padding-bottom: 32px; }
+    body.with-dock #view { padding-bottom: 112px; }
+    .display { font-family: var(--display); font-weight: 400; line-height: 1.35; }
+    .meta { font-size: 13px; color: var(--muted); }
+    .icon { display: inline-flex; flex: none; }
+    .icon svg { display: block; }
+    .grow { flex: 1; min-width: 0; }
+    .loading { padding: 40px 20px; text-align: center; color: var(--muted); }
+
+    /* night band + fairy lights */
+    .night { background: var(--night); color: var(--on-night); border-radius: 0 0 28px 28px; padding-bottom: 20px; }
+    .lights { display: block; width: 100%; height: auto; }
+    .lights .wire { stroke: var(--dash); }
+    .night .lights .wire { stroke: #5B4A70; }
+    .brand-row { display: flex; align-items: baseline; gap: 8px; padding: 0 20px; }
+    .brand { font-family: var(--display); font-size: 26px; color: var(--saffron); }
+    .brand-sub, .greet { font-size: 13px; color: var(--on-night-muted); }
+    .greet { margin: 14px 20px 0; }
+    .night h1 { margin: 0 20px; font-size: 38px; }
+    .strip { display: flex; gap: 8px; overflow-x: auto; padding: 14px 20px 4px; scrollbar-width: none; }
+    .strip::-webkit-scrollbar { display: none; }
+    .day { flex: 0 0 66px; min-height: 86px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+           padding: 8px 4px; border-radius: 16px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06); color: var(--on-night); }
+    .day[aria-pressed="true"] { background: var(--saffron); border-color: var(--saffron); color: #2A2030; }
+    .day-top { font-size: 12px; font-weight: 500; }
+    .day-num { font-family: var(--display); font-size: 28px; line-height: 1.2; }
+    .day-count { font-size: 11px; color: var(--on-night-muted); }
+    .day[aria-pressed="true"] .day-count { color: #2A2030; }
+    .paper-head { padding: 4px 20px 0; }
+    .paper-head h1 { font-size: 34px; }
+    .paper-head p { font-size: 14px; color: var(--muted); }
+
+    /* home: tickets */
+    .pad { padding: 24px 20px 0; }
+    .list-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+    .list-head h2 { font-size: 26px; }
+    .stack { display: flex; flex-direction: column; gap: 16px; }
+    .ticket { position: relative; display: flex; width: 100%; padding: 0; border: 0; border-radius: 16px; background: var(--card);
+              text-align: start; box-shadow: 0 1px 0 var(--line), 0 8px 20px rgba(43,31,58,.06); }
+    .ticket::before, .ticket::after { content: ""; position: absolute; inset-inline-start: 70px; width: 18px; height: 18px;
+                                      border-radius: 50%; background: var(--paper); }
+    .ticket::before { top: -9px; }
+    .ticket::after { bottom: -9px; }
+    .stub { flex: 0 0 78px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 14px 0; border-inline-end: 2px dashed var(--line); }
+    .stub-time { font-family: var(--display); font-size: 26px; line-height: 1.15; color: var(--hot); }
+    .ticket-body { flex: 1; min-width: 0; padding: 14px 16px; display: flex; flex-direction: column; gap: 3px; }
+    .ticket-title { font-size: 16px; font-weight: 700; line-height: 1.5; }
+    .ticket-place { display: flex; align-items: center; gap: 4px; font-size: 13px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; padding: 2px 10px; border-radius: 999px; }
+    .chip-teal { border: 1px solid var(--link); color: var(--link); }
+    .chip-pom { display: inline-flex; align-items: center; gap: 4px; background: var(--pom-soft); color: var(--pom-text); }
+    .empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 36px 24px;
+             border-radius: 20px; border: 1.5px dashed var(--dash); }
+    .empty .display { font-size: 22px; margin-top: 6px; }
+    .empty p:last-child { font-size: 14px; line-height: 1.8; color: var(--muted); }
+
+    /* dock */
+    #dock { position: fixed; bottom: max(16px, env(safe-area-inset-bottom)); left: 0; right: 0; display: flex; justify-content: center; pointer-events: none; }
+    #dock[hidden] { display: none; }
+    .dock { pointer-events: auto; display: flex; gap: 4px; padding: 6px; border-radius: 999px; background: var(--night);
+            box-shadow: 0 10px 30px rgba(43,31,58,.28); }
+    .dock button { display: flex; align-items: center; gap: 6px; min-height: 48px; padding: 0 16px; border: 0; border-radius: 999px;
+                   background: transparent; color: #E9DDF0; font-size: 14px; font-weight: 500; }
+    .dock button[aria-current="page"] { background: var(--saffron); color: #2A2030; font-weight: 700; }
+
+    /* event detail */
+    .poster { position: relative; height: 150px; background: var(--teal); }
+    .sticker { position: absolute; top: 20px; inset-inline-start: 20px; transform: rotate(-6deg); padding: 4px 14px; border-radius: 8px;
+               background: var(--saffron); color: #2A2030; font-family: var(--display); font-size: 20px; box-shadow: 0 4px 10px rgba(0,0,0,.18); }
+    .ticket-big { position: relative; margin: -56px 16px 0; border-radius: 22px; background: var(--card); box-shadow: 0 12px 32px rgba(43,31,58,.14); }
+    .tb-head { padding: 22px 22px 18px; }
+    .tb-head h1 { font-size: 30px; }
+    .perf { position: relative; margin: 0 18px; border-top: 2px dashed var(--line); }
+    .perf::before, .perf::after { content: ""; position: absolute; top: -11px; width: 22px; height: 22px; border-radius: 50%; background: var(--paper); }
+    .perf::before { right: -29px; }
+    .perf::after { left: -29px; }
+    .facts { margin: 0; padding: 18px 22px 22px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
+    .facts dt { font-size: 12px; color: var(--muted); }
+    .facts dd { margin: 2px 0 0; font-size: 15px; font-weight: 700; line-height: 1.7; overflow-wrap: anywhere; }
+    .facts .wide { grid-column: span 2; }
+    .facts .wide dd { font-weight: 400; }
+    .facts .time dd { font-family: var(--display); font-size: 24px; font-weight: 400; line-height: 1.2; color: var(--hot); }
+    .body { margin-top: 6px; font-size: 15px; line-height: 1.9; white-space: pre-line; overflow-wrap: anywhere; }
+    .links { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px 16px 0; }
+    .pill-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border-radius: 999px;
+                 border: 1.5px solid var(--line); background: var(--card); color: var(--ink); text-decoration: none; font-size: 14px; font-weight: 500; }
+    .card { margin: 20px 16px 0; padding: 18px; border-radius: 22px; background: var(--card); }
+    .card-head { display: flex; align-items: center; gap: 12px; }
+    .card-head h2 { font-size: 22px; line-height: 1.3; }
+    .lamp { flex: 0 0 44px; height: 44px; border-radius: 50%; background: var(--saffron); color: #2A2030; display: flex; align-items: center; justify-content: center; }
+    .pills { display: flex; gap: 8px; margin-top: 14px; }
+    .pill { flex: 1 1 0; min-height: 46px; padding: 0 6px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--paper); font-size: 14px; font-weight: 700; }
+    .pill[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+    .artist-link { display: flex; align-items: center; gap: 14px; width: calc(100% - 32px); margin: 16px 16px 0; padding: 16px; border: 0;
+                   border-radius: 22px; background: var(--teal); color: #F4FBFA; text-align: start; }
+    .artist-link small { display: block; font-size: 13px; color: #CDEBE7; }
+    .artist-link .display { display: block; font-size: 21px; }
+    .cta-bar { position: sticky; bottom: 0; margin-top: 24px; padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+               background: var(--paper); border-top: 1px solid var(--line); }
+    .primary { width: 100%; min-height: 56px; border: 0; border-radius: 18px; background: var(--pom); color: #FFFFFF; font-size: 17px;
+               font-weight: 800; box-shadow: 0 10px 22px rgba(181,55,47,.28); }
+    .status { margin-top: 10px; text-align: center; font-size: 13px; font-weight: 700; }
     .status:empty { display: none; }
-    #ton-connect { display: flex; justify-content: center; margin-bottom: 8px; }
+
+    /* reminders: taped notes */
+    .notes { padding: 30px 20px 0; display: flex; flex-direction: column; gap: 26px; }
+    .note { position: relative; padding: 24px 18px 16px; border-radius: 6px; background: var(--card);
+            box-shadow: 0 1px 0 var(--line), 0 10px 24px rgba(43,31,58,.08); transform: rotate(-1.2deg); }
+    .note:nth-child(3n+2) { transform: rotate(.9deg); }
+    .note:nth-child(3n) { transform: rotate(-.6deg); }
+    .note::before { content: ""; position: absolute; top: -10px; left: 50%; width: 86px; height: 22px; margin-left: -43px;
+                    background: #F6D58E; opacity: .92; transform: rotate(-3deg); }
+    .note:nth-child(3n+2)::before { background: #BFE0DB; }
+    .note:nth-child(3n)::before { background: #F2C4BC; }
+    .note-row { display: flex; align-items: flex-start; gap: 8px; }
+    .note-row > div { flex: 1; min-width: 0; }
+    .note-title { font-size: 17px; font-weight: 700; line-height: 1.5; }
+    .icon-btn { flex: 0 0 44px; width: 44px; height: 44px; margin: -8px 0 0 -8px; padding: 0; border: 0; border-radius: 50%;
+                background: transparent; color: var(--pom-text); display: flex; align-items: center; justify-content: center; }
+    .dashed-link { display: flex; align-items: center; gap: 12px; width: 100%; padding: 16px 18px; border-radius: 16px;
+                   border: 1.5px dashed var(--dash); background: transparent; text-align: start; font-size: 14px; line-height: 1.7; }
+    .dashed-link strong { color: var(--link); }
+
+    /* artists: cassettes on shelves */
+    .search { display: flex; align-items: center; gap: 8px; margin: 16px 20px 0; padding: 0 14px; min-height: 50px; border-radius: 14px;
+              background: var(--card); border: 1.5px solid var(--line); color: var(--muted); }
+    .search:focus-within { outline: 3px solid var(--saffron); outline-offset: 2px; }
+    .search input { flex: 1; min-width: 0; min-height: 46px; border: 0; background: transparent; color: var(--ink); font-size: 15px; outline: none; }
+    .shelf { padding: 30px 14px 0; display: flex; flex-direction: column; gap: 28px; }
+    .tapes { display: flex; gap: 14px; padding: 0 8px; align-items: flex-end; }
+    .tape { flex: 1 1 0; min-width: 0; max-width: calc(50% - 7px); padding: 8px 8px 6px; border: 0; border-radius: 12px;
+            background: #B5372F; box-shadow: 0 6px 14px rgba(43,31,58,.18); text-align: start; color: #2A2030; }
+    .tape-1 { background: #1D6F6A; }
+    .tape-2 { background: #F2B441; }
+    .tape-3 { background: #2B1F3A; }
+    .tape-4 { background: #5B4A70; }
+    .tape-label { display: block; padding: 7px 10px 9px; border-radius: 6px; background: #FFF9F0; }
+    .tape-name, .tape-bio { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tape-name { font-family: var(--display); font-size: 19px; line-height: 1.35; }
+    .tape-bio { font-size: 11px; color: #6E6170; }
+    .tape-window { display: flex; align-items: center; margin-top: 8px; height: 26px; padding: 0 12px; border-radius: 13px; background: #2A2030; }
+    .reel { flex: 0 0 16px; height: 16px; border-radius: 50%; border: 3px solid #F4ECE0; }
+    .tape-line { flex: 1; height: 2px; margin: 0 8px; background: #6E6170; }
+    .tape-holes { display: flex; justify-content: center; gap: 24px; padding-top: 5px; }
+    .tape-holes span { width: 6px; height: 6px; border-radius: 50%; background: rgba(0,0,0,.25); }
+    .plank { height: 14px; border-radius: 3px; background: var(--wood); border-bottom: 5px solid #6B4329; box-shadow: 0 8px 12px rgba(43,31,58,.12); }
+    .empty-line { padding: 28px 16px; text-align: center; font-size: 14px; color: var(--muted); border-radius: 16px; border: 1.5px dashed var(--dash); }
+    .cta-teal { margin: 28px 20px 0; padding: 20px; border-radius: 22px; background: var(--teal); color: #F4FBFA; }
+    .cta-teal h2 { font-size: 24px; }
+    .cta-teal p { margin: 2px 0 14px; font-size: 14px; line-height: 1.8; color: #CDEBE7; }
+    .btn-paper { display: inline-flex; align-items: center; gap: 6px; min-height: 46px; padding: 0 18px; border: 0; border-radius: 14px;
+                 background: #FFF9F0; color: #1D6F6A; font-size: 15px; font-weight: 800; }
+
+    /* artist page + tip jar */
+    .night.center { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 28px 24px 24px; }
+    .night.center h1 { margin-top: 12px; font-size: 34px; }
+    .night.center p { margin-top: 2px; max-width: 300px; font-size: 14px; line-height: 1.8; color: var(--on-night-muted); overflow-wrap: anywhere; }
+    .jar-row { display: flex; align-items: flex-end; gap: 16px; }
+    .jar-row > div:first-child { flex: 1; min-width: 0; }
+    .jar-row h2 { font-size: 28px; }
+    .jar { position: relative; flex: 0 0 96px; height: 116px; }
+    .jar-lid { position: absolute; top: 0; left: 14px; right: 14px; height: 13px; border-radius: 4px; background: var(--wood); }
+    .jar-glass { position: absolute; top: 10px; left: 0; right: 0; bottom: 0; border: 3px solid var(--ink);
+                 border-radius: 22px 22px 30px 30px; background: rgba(95,194,182,.14); overflow: hidden; }
+    .coin { position: absolute; width: 22px; height: 22px; border-radius: 50%; background: var(--saffron); border: 2px solid #C98A1E; }
+    .label { display: block; margin: 18px 0 8px; font-size: 13px; font-weight: 700; }
+    .segmented { display: flex; gap: 4px; padding: 4px; border-radius: 16px; background: var(--paper); }
+    .segmented button { flex: 1 1 0; min-height: 46px; display: flex; align-items: center; justify-content: center; gap: 6px;
+                        border: 0; border-radius: 12px; background: transparent; font-size: 14px; font-weight: 700; }
+    .segmented button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+    .note-line { margin: 10px 2px 0; font-size: 13px; line-height: 1.8; color: var(--muted); }
+    .tiers { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+    .tier { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 10px 14px; border-radius: 16px;
+            border: 2px solid var(--line); background: var(--field); text-align: start; }
+    .tier[aria-pressed="true"] { border-color: var(--pom); background: var(--pom-soft); }
+    .tier-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .tier-name { font-family: var(--display); font-size: 20px; line-height: 1.35; }
+    .tier-amount { font-size: 15px; font-weight: 800; white-space: nowrap; }
+    .field { display: block; margin-top: 14px; font-size: 14px; font-weight: 700; }
+    .field input, .field textarea { display: block; width: 100%; margin-top: 6px; min-height: 48px; padding: 0 14px; border-radius: 14px;
+                                    border: 1.5px solid var(--line); background: var(--field); font-size: 15px; font-weight: 400; color: var(--ink); }
+    .field textarea { padding: 12px 14px; line-height: 1.8; resize: vertical; }
+    .field input[dir="ltr"] { font: 14px ui-monospace, Menlo, monospace; }
+    .hint { display: block; margin-top: 6px; font-size: 12px; font-weight: 400; line-height: 1.7; color: var(--muted); }
+    .address { display: block; width: 100%; margin-top: 6px; padding: 12px; border-radius: 12px; border: 1.5px dashed var(--dash);
+               background: transparent; font: 13px ui-monospace, Menlo, monospace; text-align: left; word-break: break-all; user-select: all; }
+    #ton-connect { display: flex; justify-content: center; margin-top: 14px; }
     #ton-connect, #tc-widget-root { direction: ltr; } /* TON Connect UI is English-only */
+
+    /* my artist profile */
+    .status-card { display: flex; align-items: center; gap: 16px; }
+    .stamp { flex: none; transform: rotate(-8deg); padding: 6px 12px; border: 3px double var(--hot); border-radius: 10px;
+             color: var(--hot); font-family: var(--display); font-size: 19px; line-height: 1.25; text-align: center; }
+    .stamp.approved { border-color: var(--link); color: var(--link); }
+    .stamp.rejected { border-color: var(--muted); color: var(--muted); }
+    .totals { margin: 14px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+    .info-row { display: flex; gap: 10px; margin-top: 14px; padding: 12px 14px; border-radius: 14px; background: var(--paper); font-size: 13px; line-height: 1.8; }
   </style>
 </head>
 <body>
-  <h1>🎵 آرگورن — حمایت از هنرمندان مستقل</h1>
-  <nav>
-    <button class="tab active" data-tab="artists">🎤 هنرمندان</button>
-    <button class="tab" data-tab="me">🎨 پروفایل هنرمندی من</button>
-  </nav>
   <main id="view"></main>
+  <nav id="dock" aria-label="بخش‌ها" hidden></nav>
   <script>
     const tg = window.Telegram?.WebApp;
     const API = "/api/v1/miniapp";
-    const STATUS = { pending: "در انتظار تأیید ادمین", approved: "تأیید شده ✅", rejected: "رد شده" };
-    const UNITS = { XTR: "Stars ⭐️", GRAM: "GRAM 💎", USDC: "USDC 💵" };
+    const UNKNOWN_TIME = "00:01";  // what the GPT extractor writes when a post has no time
+    const UNITS = { XTR: "ستاره", GRAM: "GRAM", USDC: "USDC" };
+    const STAMP = { pending: ["در انتظار", "تأیید"], approved: ["تأیید", "شده"], rejected: ["رد", "شده"] };
+    const STATUS_TEXT = {
+      pending: "ادمین آرگورن پروفایلت را بررسی می‌کند. تا تأیید نشود، صفحه‌ات برای دیگران دیده نمی‌شود.",
+      approved: "صفحه‌ات روی قفسه است. لینک اشتراکش را ربات بعد از تأیید برایت فرستاده است.",
+      rejected: "درخواستت تأیید نشد. اطلاعات را اصلاح کن و دوباره بفرست.",
+    };
+    // Tip-jar tiers: [name, description, coins in the jar]; amounts per rail below.
+    const TIERS = [["یک چای", "برای استراحت بین دو ست", 3], ["یک دست سیم", "سیم نو برای ساز، صدای تازه", 6],
+                   ["یک شب تمرین", "اجارهٔ اتاق تمرین برای یک شب", 11]];
+    const TIER_AMOUNTS = { XTR: [50, 250, 1000], GRAM: [1, 5, 20] };
+    const COIN_SPOTS = [[6, 2], [30, 2], [54, 2], [18, 20], [42, 20], [64, 6], [30, 38], [6, 24], [54, 36], [18, 56], [42, 56]];
+    const RAILS = {
+      XTR: ["ستاره", "star", "پرداخت داخل خود تلگرام. ستاره‌ها نزد آرگورن جمع می‌شود و ادمین با هنرمند تسویه می‌کند."],
+      GRAM: ["GRAM", "gem", "مستقیم به کیف‌پول هنرمند روی شبکهٔ TON، با Wallet تلگرام یا Tonkeeper."],
+      USDC: ["USDC", "coin", "فقط USDC روی شبکهٔ Base را مستقیم به کیف‌پول هنرمند بفرست، بعد هش تراکنش را اینجا بگذار."],
+    };
+    const ICONS = {
+      note: '<path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/>',
+      bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
+      cassette: '<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="8.5" cy="11.5" r="1.8"/><circle cx="15.5" cy="11.5" r="1.8"/><path d="M7 18l1.5-3h7L17 18"/>',
+      pin: '<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+      x: '<path d="M6 6l12 12M18 6L6 18"/>',
+      chevron: '<path d="M14.5 6l-6 6 6 6"/>',
+      calendar: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/>',
+      camera: '<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/>',
+      moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+      search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
+      star: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/>',
+      gem: '<path d="M6 4h12l3 5-9 11L3 9z"/><path d="M3 9h18"/>',
+      coin: '<circle cx="12" cy="12" r="8.5"/><path d="M14.5 9.2c-.5-.8-1.5-1.2-2.5-1.2-1.4 0-2.5.8-2.5 1.9 0 2.6 5 1.4 5 4.1 0 1.1-1.1 2-2.5 2-1.1 0-2.1-.5-2.6-1.3M12 6.5V8M12 16v1.5"/>',
+      info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/>',
+    };
+    const TABS = [["events", "برنامه", "note"], ["reminders", "یادآورها", "bell"], ["artists", "هنرمندان", "cassette"]];
     const view = document.getElementById("view");
-    let artists = [];
+    const dock = document.getElementById("dock");
+    let currentView = "", currentTab = "events";
+    let days = [], dayIndex = 0, artists = [];
     let tonConnect = null;
     // One node for TON Connect's button, re-attached on every artist page: the widget renders
     // into its root only once, so a fresh #ton-connect element would stay empty.
@@ -78,16 +290,38 @@
     function h(tag, attrs = {}, ...children) {
       const el = document.createElement(tag);
       for (const [key, value] of Object.entries(attrs)) {
+        if (value == null || value === false) continue;
         if (key.startsWith("on")) el.addEventListener(key.slice(2), value);
         else el.setAttribute(key, value);
       }
-      el.append(...children.filter(child => child != null && child !== false));
+      el.append(...children.filter(child => child != null && child !== false && child !== ""));
       return el;
     }
 
-    async function api(path, body) {
+    // Static, trusted SVG markup only (no user text), so innerHTML is safe here.
+    function svg(markup, attrs) {
+      const span = h("span", { class: "icon", "aria-hidden": "true" });
+      span.innerHTML = `<svg ${attrs}>${markup}</svg>`;
+      return span;
+    }
+    const icon = (name, size = 18) => svg(ICONS[name],
+      `width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"`);
+
+    function lights() {
+      const bulbs = [[31, 19], [78, 29], [125, 36], [172, 40], [218, 40], [265, 36], [312, 29], [359, 19]]
+        .map(([x, y], i) => {
+          const color = ["#F2B441", "#E8705F", "#5FC2B6"][i % 3];
+          return `<line class="wire" x1="${x}" y1="${y}" x2="${x}" y2="${y + 5}" stroke-width="1.5"/>` +
+                 `<circle cx="${x}" cy="${y + 10}" r="9" fill="${color}" opacity=".2"/><circle cx="${x}" cy="${y + 10}" r="4.5" fill="${color}"/>`;
+        }).join("");
+      const el = svg(`<path class="wire" d="M0 10 Q195 70 390 10" fill="none" stroke-width="1.5"/>${bulbs}`, 'viewBox="0 0 390 64" width="100%"');
+      el.className = "lights";
+      return el;
+    }
+
+    async function api(path, body, method = body ? "POST" : "GET") {
       const res = await fetch(API + path, {
-        method: body ? "POST" : "GET",
+        method,
         headers: { "Authorization": "tma " + tg.initData, "Content-Type": "application/json" },
         body: body ? JSON.stringify(body) : undefined,
       });
@@ -100,13 +334,24 @@
     }
 
     function notify(message) { tg.showAlert(message); }
+    const haptic = () => tg.HapticFeedback.selectionChanged();
+    const fa = text => String(text).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[d]);
+    const timeFa = time => !time || time === UNKNOWN_TIME ? "؟" : fa(time);
+    function dayPart(time) {
+      if (!time || time === UNKNOWN_TIME) return "ساعت نامعلوم";
+      const hour = Number(time.split(":")[0]);
+      return hour < 12 ? "صبح" : hour < 16 ? "بعدازظهر" : hour < 19 ? "عصر" : "شب";
+    }
+    const dayTop = i => i === 0 ? "امروز" : i === 1 ? "فردا" : days[i].weekday;
+    const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    const openLink = url => (event) => { event.preventDefault(); tg.openLink(url); };
 
     // Bidi-isolated "1.5 GRAM": a Latin amount inside Persian text would otherwise reorder.
     function amountEl(amount, unit) { return h("bdi", { dir: "ltr" }, `${amount} ${unit}`); }
 
     // A button that is disabled while its action runs, so one tap = one payment request.
-    function action(label, run) {
-      const button = h("button", { class: "primary", type: "button" }, label);
+    function action(content, run, attrs = { class: "primary" }) {
+      const button = h("button", { type: "button", ...attrs }, content);
       button.onclick = async () => {
         button.disabled = true;
         try { await run(); } catch (e) { notify(e.message); } finally { button.disabled = false; }
@@ -123,62 +368,300 @@
       return tonConnect;
     }
 
+    function applyTheme() {
+      document.documentElement.dataset.theme = tg.colorScheme;
+      tg.setBackgroundColor(cssVar("--paper"));
+    }
+
+    // Shared frame for every screen: dock on tabs, Telegram's BackButton on detail screens.
+    function setChrome(name, night = false) {
+      currentView = name;
+      const isTab = TABS.some(([tab]) => tab === name);
+      if (isTab) currentTab = name;
+      dock.hidden = !isTab;
+      document.body.classList.toggle("with-dock", isTab);
+      dock.querySelectorAll("button").forEach(b =>
+        b.dataset.tab === name ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
+      if (isTab) tg.BackButton.hide(); else tg.BackButton.show();
+      tg.setHeaderColor(night ? "#2B1F3A" : cssVar("--paper"));
+      window.scrollTo(0, 0);
+    }
+
     function setTab(name) {
-      document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
-      tg.BackButton.hide();
-      (name === "me" ? showMe() : showArtists()).catch(e => notify(e.message));
+      const show = { events: showEvents, reminders: showReminders, artists: showArtists }[name];
+      show().catch(e => notify(e.message));
     }
 
-    async function showArtists() {
-      view.replaceChildren(h("p", { class: "hint" }, "در حال بارگذاری…"));
-      artists = await api("/artists");
-      if (!artists.length) {
-        view.replaceChildren(h("p", { class: "hint" }, "هنوز هنرمندی ثبت نشده است."));
-        return;
+    const loading = () => view.replaceChildren(h("p", { class: "loading" }, "در حال بارگذاری…"));
+    const paperHeader = (title, subtitle) =>
+      [lights(), h("header", { class: "paper-head" }, h("h1", { class: "display" }, title), h("p", {}, subtitle))];
+
+    // ── Home: the week strip and today's tickets ──────────────────────────
+    async function showEvents() {
+      setChrome("events", true);
+      if (days.length) renderEvents(); else loading();
+      days = await api("/events");
+      if (currentView === "events") renderEvents();
+    }
+
+    function renderEvents() {
+      const list = h("section", { class: "pad" });
+      const buttons = days.map((day, i) => h("button", {
+        type: "button", class: "day", onclick: () => { dayIndex = i; haptic(); paint(); },
+      }, h("span", { class: "day-top" }, dayTop(i)),
+         h("span", { class: "day-num" }, day.date_fa.split(" ")[0]),
+         h("span", { class: "day-count" }, day.events.length ? `${fa(day.events.length)} اجرا` : "خالی")));
+      function paint() {
+        buttons.forEach((b, i) => b.setAttribute("aria-pressed", String(i === dayIndex)));
+        const day = days[dayIndex];
+        const [dayNum, month] = day.date_fa.split(" ");
+        const heading = dayIndex === 0 ? "برنامهٔ امروز" : dayIndex === 1 ? "برنامهٔ فردا" : `برنامهٔ ${day.weekday}`;
+        list.replaceChildren(
+          h("div", { class: "list-head" }, h("h2", { class: "display" }, heading),
+            // "،" not "·": next to Persian digits a middle dot reads as the digit zero ("۰")
+            h("span", { class: "meta" }, `${day.weekday} ${dayNum} ${month}، ${day.events.length ? fa(day.events.length) + " اجرا" : "بدون اجرا"}`)),
+          day.events.length
+            ? h("div", { class: "stack" }, ...day.events.map(event => eventTicket(event, dayIndex)))
+            : h("div", { class: "empty" }, icon("moon", 40), h("p", { class: "display" }, "این روز خبری نیست"),
+                h("p", {}, "یک روز دیگر را از نوار بالا انتخاب کن؛ شاید همان شبی باشد که دنبالش بودی.")));
       }
-      view.replaceChildren(...artists.map(artist =>
-        h("button", { class: "card artist", onclick: () => showArtist(artist) },
-          h("strong", {}, artist.name),
-          artist.bio && h("span", { class: "hint" }, artist.bio))));
+      const [todayNum, todayMonth] = days[0].date_fa.split(" ");
+      view.replaceChildren(
+        h("header", { class: "night" }, lights(),
+          h("div", { class: "brand-row" }, h("span", { class: "brand" }, "آرگورن"), h("span", { class: "brand-sub" }, "موسیقی مستقل، همین نزدیکی")),
+          h("p", { class: "greet" }, `${days[0].weekday}، ${todayNum} ${todayMonth}`),
+          h("h1", { class: "display" }, "امشب کجا بریم؟"),
+          h("div", { class: "strip", role: "group", "aria-label": "روزهای هفته" }, ...buttons)),
+        list);
+      paint();
+      buttons[dayIndex].scrollIntoView({ block: "nearest", inline: "nearest" });
     }
 
+    function eventTicket(event, index) {
+      return h("button", { type: "button", class: "ticket", onclick: () => showEvent(event, index) },
+        h("span", { class: "stub" }, h("span", { class: "stub-time" }, timeFa(event.time)), h("span", { class: "meta" }, dayPart(event.time))),
+        h("span", { class: "ticket-body" },
+          h("span", { class: "ticket-title" }, event.title || "بدون عنوان"),
+          event.performers && h("span", { class: "meta" }, event.performers),
+          event.location && h("span", { class: "ticket-place" }, icon("pin", 15), event.maps_link ? "روی نقشه" : event.location),
+          (event.ticket_info || event.reminded) && h("span", { class: "chips" },
+            event.ticket_info && h("span", { class: "chip chip-teal" }, event.ticket_info),
+            event.reminded && h("span", { class: "chip chip-pom" }, icon("bell", 13), "یادآوری فعال"))));
+    }
+
+    // ── Event: the big ticket and "remind me" ─────────────────────────────
+    function showEvent(event, index) {
+      setChrome("event");
+      const day = days[index];
+      const options = [[2, "۲ ساعت قبل"], [24, "۲۴ ساعت قبل"], [0, "هر دو"]];
+      let hours = 2;
+      const cta = action("یادم بنداز، ۲ ساعت قبل", async () => {
+        const { created } = await api(`/events/${event.id}/reminders`, { hours });
+        event.reminded = true;
+        tg.HapticFeedback.notificationOccurred("success");
+        notify(created ? "✅ یادآوری ثبت شد؛ همین‌جا در تلگرام خبرت می‌کنیم." : "این یادآوری قبلاً ثبت شده است.");
+      });
+      const pills = options.map(([value, label]) => {
+        const pill = h("button", { type: "button", class: "pill", "aria-pressed": String(value === hours) }, label);
+        pill.onclick = () => {
+          hours = value;
+          haptic();
+          pills.forEach(p => p.setAttribute("aria-pressed", String(p === pill)));
+          cta.textContent = `یادم بنداز، ${label}`;
+        };
+        return pill;
+      });
+      const fact = (term, value, cls) => h("div", { class: cls }, h("dt", {}, term), h("dd", {}, value));
+      const extLink = (label, name, url) => h("a", { href: url, class: "pill-link", onclick: openLink(url) }, icon(name), label);
+      view.replaceChildren(
+        h("div", { class: "poster" }, h("span", { class: "sticker" }, dayTop(index))),
+        h("article", { class: "ticket-big" },
+          h("div", { class: "tb-head" }, h("h1", { class: "display" }, event.title || "بدون عنوان"),
+            event.performers && h("p", { class: "meta" }, "با اجرای ", event.performers)),
+          h("div", { class: "perf", "aria-hidden": "true" }),
+          h("dl", { class: "facts" },
+            fact("تاریخ", `${day.weekday} ${day.date_fa}`),
+            fact("ساعت", timeFa(event.time), "time"),
+            event.location && fact("مکان", event.maps_link
+              ? h("a", { href: event.maps_link, onclick: openLink(event.maps_link) }, "مسیر روی نقشه")
+              : event.location, "wide"),
+            event.ticket_info && fact("بلیت", event.ticket_info, "wide"))),
+        event.description && h("section", { class: "pad" }, h("h2", { class: "display" }, "دربارهٔ اجرا"), h("p", { class: "body" }, event.description)),
+        (event.google_calendar_link || event.instagram_link) && h("div", { class: "links" },
+          event.google_calendar_link && extLink("تقویم گوگل", "calendar", event.google_calendar_link),
+          event.instagram_link && extLink("پست اینستاگرام", "camera", event.instagram_link)),
+        h("section", { class: "card" },
+          h("div", { class: "card-head" }, h("span", { class: "lamp", "aria-hidden": "true" }, icon("bell", 22)),
+            h("div", {}, h("h2", { class: "display" }, "یادم بنداز"), h("p", { class: "meta" }, "پیش از اجرا، همین‌جا در تلگرام خبرت می‌کنیم."))),
+          h("div", { class: "pills", role: "group", "aria-label": "زمان یادآوری" }, ...pills)),
+        event.artist_id && h("button", { type: "button", class: "artist-link", onclick: () => openArtist(event.artist_id) },
+          h("span", { class: "grow" }, h("small", {}, "این هنرمند در آرگورن صفحه دارد"), h("span", { class: "display" }, "یک چای مهمانش کن")),
+          icon("chevron", 22)),
+        h("div", { class: "cta-bar" }, cta));
+    }
+
+    async function openArtist(artistId) {
+      if (!artists.length) artists = await api("/artists");
+      const artist = artists.find(a => a.id === artistId);
+      if (artist) showArtist(artist);
+      else await showArtists();  // unapproved or removed since the link was shared
+    }
+
+    // ── Reminders: notes taped to the fridge ──────────────────────────────
+    async function showReminders() {
+      setChrome("reminders");
+      loading();
+      const rows = await api("/reminders");
+      if (currentView !== "reminders") return;
+      const groups = new Map();  // one note per event; the bot stores 2h and 24h as separate rows
+      for (const row of rows) {
+        const group = groups.get(row.event_id) ?? { ...row, ids: [], hoursList: [] };
+        group.ids.push(row.id);
+        group.hoursList.push(row.hours);
+        groups.set(row.event_id, group);
+      }
+      const isCoords = text => /^[-+]?\d+(\.\d+)?,\s*[-+]?\d+(\.\d+)?$/.test(text);
+      const notes = [...groups.values()].map(group => h("article", { class: "note" },
+        h("div", { class: "note-row" },
+          h("div", {}, h("h2", { class: "note-title" }, group.title), h("p", { class: "meta" }, group.when),
+            group.location && !isCoords(group.location) && h("p", { class: "meta" }, group.location)),
+          action(icon("x", 20), async () => {
+            for (const id of group.ids) await api(`/reminders/${id}`, null, "DELETE");
+            haptic();
+            await showReminders();
+          }, { class: "icon-btn", "aria-label": `حذف یادآوری ${group.title}` })),
+        h("div", { class: "chips" }, ...group.hoursList.sort((a, b) => b - a).map(hours =>
+          h("span", { class: "chip chip-pom" }, icon("bell", 13), `${fa(hours)} ساعت قبل`)))));
+      view.replaceChildren(
+        ...paperHeader("یادآورهای من", "پیش از هر اجرا، همین‌جا در تلگرام پیام می‌دهیم."),
+        h("section", { class: "notes" },
+          ...(notes.length ? notes : [h("div", { class: "empty" }, h("p", { class: "display" }, "فعلاً یادآوری‌ای نداری"),
+            h("p", {}, "از صفحهٔ هر رویداد، «یادم بنداز» را بزن تا اینجا بنشیند."))]),
+          h("button", { type: "button", class: "dashed-link", onclick: () => setTab("events") },
+            h("span", { class: "grow" }, "رویدادی دیدی که نمی‌خواهی از دستش بدهی؟ ", h("strong", {}, "سری به برنامه‌ها بزن")),
+            icon("chevron", 20))));
+    }
+
+    // ── Artists: cassettes on wooden shelves ──────────────────────────────
+    async function showArtists() {
+      setChrome("artists");
+      loading();
+      artists = await api("/artists");
+      if (currentView !== "artists") return;
+      const shelf = h("div", { class: "shelf" });
+      const search = h("input", { type: "search", placeholder: "اسم هنرمند یا گروه…", "aria-label": "جستجوی هنرمند" });
+      const cassette = artist => h("button", { type: "button", class: `tape tape-${artist.id % 5}`, onclick: () => showArtist(artist) },
+        h("span", { class: "tape-label" },
+          h("span", { class: "tape-name" }, artist.name),
+          h("span", { class: "tape-bio" }, artist.bio || "هنرمند مستقل"),
+          h("span", { class: "tape-window", "aria-hidden": "true" }, h("span", { class: "reel" }), h("span", { class: "tape-line" }), h("span", { class: "reel" }))),
+        h("span", { class: "tape-holes", "aria-hidden": "true" }, h("span"), h("span")));
+      function paint() {
+        const query = search.value.trim();
+        const found = artists.filter(a => !query || a.name.includes(query) || (a.bio || "").includes(query));
+        const rows = [];
+        for (let i = 0; i < found.length; i += 2) {
+          rows.push(h("div", {}, h("div", { class: "tapes" }, ...found.slice(i, i + 2).map(cassette)), h("div", { class: "plank", "aria-hidden": "true" })));
+        }
+        shelf.replaceChildren(...(rows.length ? rows : [h("p", { class: "empty-line" },
+          artists.length ? "کسی با این اسم روی قفسه نیست." : "هنوز هنرمندی روی قفسه نیست.")]));
+      }
+      search.oninput = paint;
+      view.replaceChildren(
+        ...paperHeader("قفسهٔ هنرمندان", "از هنرمند مستقلی که دوستش داری، مستقیم حمایت کن."),
+        h("label", { class: "search" }, icon("search", 20), search),
+        shelf,
+        h("section", { class: "cta-teal" }, h("h2", { class: "display" }, "خودت هنرمندی؟"),
+          h("p", {}, "صفحهٔ هنرمندی‌ات را بساز تا طرفدارها مستقیم حمایتت کنند."),
+          h("button", { type: "button", class: "btn-paper", onclick: () => showMe().catch(e => notify(e.message)) }, "پروفایل هنرمندی من", icon("chevron"))));
+      paint();
+    }
+
+    // ── Artist page: the tip jar ──────────────────────────────────────────
     function showArtist(artist) {
-      tg.BackButton.show();
-      const status = h("p", { class: "status" });
-      view.replaceChildren(...[
-        h("div", { class: "card" }, h("h2", {}, artist.name), artist.bio && h("p", {}, artist.bio)),
-        starsSection(artist, status),
-        artist.ton_address && gramSection(artist, status),
-        artist.evm_address && usdcSection(artist, status),
-        status,
-      ].filter(Boolean));
-      if (artist.ton_address) tonUI();
-    }
-
-    function starsSection(artist, status) {
-      const amount = h("input", { type: "number", min: "1", max: "10000", value: "100", inputmode: "numeric" });
-      return h("section", { class: "card" },
-        h("h3", {}, "⭐️ استارز تلگرام"),
-        h("div", { class: "row" }, ...[50, 100, 500].map(n =>
-          h("button", { class: "chip", type: "button", onclick: () => { amount.value = n; } }, `${n} ⭐️`))),
-        amount,
-        action("پرداخت با استارز", async () => {
-          const { invoice_link } = await api(`/artists/${artist.id}/stars`, { amount: Number(amount.value) });
+      setChrome("artist", true);
+      const rails = ["XTR", artist.ton_address && "GRAM", artist.evm_address && "USDC"].filter(Boolean);
+      let rail = "XTR", tier = 1;
+      const status = h("p", { class: "status", role: "status" });
+      const glass = h("span", { class: "jar-glass" });
+      const railNote = h("p", { class: "note-line" });
+      const custom = h("input", { type: "number", inputmode: "decimal", min: "0", step: "any" });
+      const tierButtons = TIERS.map(([name, desc], i) =>
+        h("button", { type: "button", class: "tier", onclick: () => { tier = i; custom.value = ""; haptic(); paint(); } },
+          h("span", { class: "tier-text" }, h("span", { class: "tier-name" }, name), h("span", { class: "meta" }, desc)),
+          h("span", { class: "tier-amount" })));
+      const amountBox = h("div", {}, h("div", { class: "tiers", role: "group", "aria-label": "مبلغ حمایت" }, ...tierButtons),
+        h("label", { class: "field" }, "یا مبلغ دلخواه", custom));
+      const gramBox = artist.ton_address && h("div", {}, tonButtonRoot ??= h("div", { id: "ton-connect" }));
+      const txHash = h("input", { placeholder: "0x…", dir: "ltr" });
+      const usdcBox = artist.evm_address && h("div", {},
+        h("span", { class: "label" }, "آدرس کیف‌پول هنرمند روی Base"),
+        h("button", {
+          class: "address", type: "button", dir: "ltr", "aria-label": "کپی آدرس کیف‌پول",
+          onclick: () => navigator.clipboard.writeText(artist.evm_address).then(
+            () => notify("آدرس کپی شد."), () => notify(artist.evm_address)),
+        }, artist.evm_address),
+        h("label", { class: "field" }, "هش تراکنش", txHash));
+      const amount = () => custom.value || TIER_AMOUNTS[rail][tier];
+      const cta = action("", async () => {
+        if (rail === "XTR") {
+          const { invoice_link } = await api(`/artists/${artist.id}/stars`, { amount: Number(amount()) });
           tg.openInvoice(invoice_link, result => {
-            if (result === "paid") status.textContent = "🙏 ممنون! حمایت استارز شما ثبت شد.";
+            if (result === "paid") { status.textContent = "ممنون! حمایتت ثبت شد و به هنرمند خبر دادیم."; tg.HapticFeedback.notificationOccurred("success"); }
             else if (result === "failed") status.textContent = "پرداخت ناموفق بود.";
           });
+        } else if (rail === "GRAM") {
+          await donateGram(artist, String(amount()), status);
+        } else {
+          const result = await api(`/artists/${artist.id}/usdc`, { tx_hash: txHash.value.trim() });
+          status.replaceChildren("ممنون! ", amountEl(result.amount, "USDC"), " ثبت شد.");
+          tg.HapticFeedback.notificationOccurred("success");
+        }
+      });
+      const railButtons = rails.map(id => h("button", { type: "button", onclick: () => { rail = id; haptic(); paint(); } },
+        icon(RAILS[id][1], 17), RAILS[id][0]));
+      function paint() {
+        railButtons.forEach((b, i) => b.setAttribute("aria-pressed", String(rails[i] === rail)));
+        railNote.textContent = RAILS[rail][2];
+        amountBox.hidden = rail === "USDC";  // USDC: the donor picks the amount in their own wallet
+        if (gramBox) gramBox.hidden = rail !== "GRAM";
+        if (usdcBox) usdcBox.hidden = rail !== "USDC";
+        tierButtons.forEach((b, i) => {
+          b.setAttribute("aria-pressed", String(!custom.value && i === tier));
+          b.lastChild.textContent = rail === "USDC" ? "" : `${fa(TIER_AMOUNTS[rail][i])} ${UNITS[rail]}`;
+        });
+        custom.placeholder = rail === "XTR" ? "مثلاً ۱۰۰ ستاره" : "مثلاً ۲ GRAM";
+        const coins = custom.value && rail !== "USDC"
+          ? Math.max(1, Math.min(11, Math.round(11 * custom.value / TIER_AMOUNTS[rail][2])))
+          : TIERS[tier][2];
+        glass.replaceChildren(...COIN_SPOTS.slice(0, coins).map(([x, y]) => {
+          const coin = h("span", { class: "coin" });
+          coin.style.left = `${x}px`;
+          coin.style.bottom = `${y}px`;
+          return coin;
         }));
-    }
-
-    function gramSection(artist, status) {
-      const amount = h("input", { type: "number", min: "0.1", step: "0.1", value: "1", inputmode: "decimal" });
-      return h("section", { class: "card" },
-        h("h3", {}, "💎 GRAM (شبکه TON)"),
-        h("p", { class: "hint" }, "مستقیم از کیف پول شما به کیف پول هنرمند واریز می‌شود."),
-        tonButtonRoot ??= h("div", { id: "ton-connect" }),
-        amount,
-        action("ارسال GRAM", () => donateGram(artist, amount.value, status)));
+        cta.textContent = rail === "USDC" ? "ثبت تراکنش" : `${rail === "XTR" ? "پرداخت" : "ارسال"} ${fa(amount())} ${UNITS[rail]}`;
+      }
+      custom.oninput = paint;
+      view.replaceChildren(
+        h("header", { class: "night center" },
+          svg('<circle cx="56" cy="56" r="54" fill="#17111F"/><circle cx="56" cy="56" r="46" fill="none" stroke="#3A2E4A"/>' +
+              '<circle cx="56" cy="56" r="38" fill="none" stroke="#3A2E4A"/><circle cx="56" cy="56" r="30" fill="none" stroke="#3A2E4A"/>' +
+              '<path d="M20 42 A38 38 0 0 1 42 20" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width="3" stroke-linecap="round"/>' +
+              '<circle cx="56" cy="56" r="20" fill="#B5372F"/><circle cx="56" cy="56" r="3" fill="#2B1F3A"/>', 'width="112" height="112" viewBox="0 0 112 112"'),
+          h("h1", { class: "display" }, artist.name),
+          artist.bio && h("p", {}, artist.bio)),
+        h("section", { class: "card" },
+          h("div", { class: "jar-row" },
+            h("div", {}, h("h2", { class: "display" }, "کاسهٔ حمایت"),
+              h("p", { class: "meta" }, "هر قدر دلت خواست. برای هنرمند مستقل، حتی یک چای یعنی «ادامه بده».")),
+            h("div", { class: "jar", "aria-hidden": "true" }, h("span", { class: "jar-lid" }), glass)),
+          h("span", { class: "label" }, "روش پرداخت"),
+          h("div", { class: "segmented", role: "group", "aria-label": "روش پرداخت" }, ...railButtons),
+          railNote, amountBox, gramBox, usdcBox),
+        h("div", { class: "cta-bar" }, cta, status));
+      paint();
+      if (artist.ton_address) tonUI();
     }
 
     async function donateGram(artist, amount, status) {
@@ -194,79 +677,73 @@
         status.textContent = "تراکنش لغو شد.";
         return;
       }
-      status.textContent = "⏳ تراکنش ارسال شد؛ در حال تأیید روی شبکه…";
+      status.textContent = "تراکنش ارسال شد؛ در حال تأیید روی شبکه…";
       for (let i = 0; i < 30; i++) {
         await new Promise(resolve => setTimeout(resolve, 4000));
         const { status: state } = await api(`/donations/${donation.donation_id}/verify`, {});
         if (state === "confirmed") {
-          status.textContent = "🙏 ممنون! حمایت GRAM شما تأیید شد.";
+          status.textContent = "ممنون! حمایت GRAM تو تأیید شد.";
+          tg.HapticFeedback.notificationOccurred("success");
           return;
         }
       }
       status.textContent = "تراکنش هنوز تأیید نشده؛ به‌محض تأیید روی شبکه ثبت می‌شود.";
     }
 
-    function usdcSection(artist, status) {
-      const txHash = h("input", { placeholder: "0x…", dir: "ltr" });
-      return h("section", { class: "card" },
-        h("h3", {}, "💵 USDC (شبکه Base)"),
-        h("p", { class: "hint" }, "فقط USDC روی شبکه Base را به این آدرس بفرستید، سپس هش تراکنش را وارد کنید:"),
-        h("button", {
-          class: "address", type: "button", dir: "ltr",
-          onclick: () => navigator.clipboard.writeText(artist.evm_address).then(
-            () => notify("آدرس کپی شد."), () => notify(artist.evm_address)),
-        }, artist.evm_address),
-        h("label", {}, "هش تراکنش", txHash),
-        action("ثبت تراکنش", async () => {
-          const result = await api(`/artists/${artist.id}/usdc`, { tx_hash: txHash.value.trim() });
-          status.replaceChildren("🙏 ممنون! ", amountEl(result.amount, "USDC"), " ثبت شد.");
-        }));
-    }
-
+    // ── My artist profile ─────────────────────────────────────────────────
     async function showMe() {
-      view.replaceChildren(h("p", { class: "hint" }, "در حال بارگذاری…"));
+      setChrome("me");
+      loading();
       const { artist, totals } = await api("/me");
-      const field = (name, label, attrs = {}) =>
-        h("label", {}, label, h("input", { name, value: artist?.[name] || "", ...attrs }));
+      if (currentView !== "me") return;
+      const field = (name, label, hint, attrs = {}) =>
+        h("label", { class: "field" }, label, h("input", { name, value: artist?.[name] || "", ...attrs }), hint && h("span", { class: "hint" }, hint));
       const form = h("form", { class: "card" },
-        field("name", "نام هنری", { required: "", maxlength: "64" }),
-        h("label", {}, "معرفی کوتاه", h("textarea", { name: "bio", maxlength: "500", rows: "3" }, artist?.bio || "")),
-        field("ton_address", "آدرس کیف پول GRAM (TON) — اختیاری", { dir: "ltr", placeholder: "UQ…" }),
-        field("evm_address", "آدرس کیف پول USDC روی شبکه Base — اختیاری", { dir: "ltr", placeholder: "0x…" }),
-        h("p", { class: "hint" },
-          "GRAM و USDC مستقیم به کیف پول شما واریز می‌شوند. استارزها در حساب ربات جمع می‌شوند و ادمین با شما تسویه می‌کند. " +
-          "پروفایل پس از تأیید ادمین نمایش داده می‌شود و هر ویرایش دوباره بررسی می‌شود."),
-        action(artist ? "ذخیره و ارسال برای بررسی" : "ثبت درخواست هنرمندی", async () => {
+        field("name", "نام هنرمندی یا گروه", "", { required: "", maxlength: "64" }),
+        h("label", { class: "field" }, "معرفی کوتاه", h("textarea", { name: "bio", maxlength: "500", rows: "3" }, artist?.bio || "")),
+        field("ton_address", "کیف‌پول TON، برای GRAM (اختیاری)", "آدرس با چک‌سام بررسی می‌شود؛ آدرس تست‌نت پذیرفته نیست.", { dir: "ltr", placeholder: "UQ…" }),
+        field("evm_address", "کیف‌پول Base، برای USDC (اختیاری)", "فقط USDC روی شبکهٔ Base؛ واریز از شبکه‌های دیگر دیده نمی‌شود.", { dir: "ltr", placeholder: "0x…" }),
+        h("div", { class: "info-row" }, icon("star", 20), h("p", {}, "ستاره‌های تلگرام هم فعال است: نزد آرگورن جمع می‌شود و ادمین با تو تسویه می‌کند.")),
+        h("p", { class: "hint" }, "هر ویرایش دوباره برای بررسی ادمین فرستاده می‌شود."));
+      form.onsubmit = event => event.preventDefault();
+      view.replaceChildren(
+        ...paperHeader("پروفایل هنرمندی من", "یک صفحه، تا طرفدارها مستقیم حمایتت کنند."),
+        artist
+          ? h("section", { class: "card" },
+              h("div", { class: "status-card" },
+                h("span", { class: `stamp ${artist.status}` }, STAMP[artist.status][0], h("br"), STAMP[artist.status][1]),
+                h("p", { class: "meta" }, STATUS_TEXT[artist.status])),
+              totals.length > 0 && h("ul", { class: "totals" }, ...totals.map(t =>
+                h("li", {}, `${fa(t.count)} حمایت، مجموع `, amountEl(t.amount, UNITS[t.asset])))))
+          : h("section", { class: "card" }, h("p", { class: "meta" }, "هنرمند مستقلی؟ پروفایلت را بساز تا طرفدارهایت مستقیم از تو حمایت کنند.")),
+        form,
+        h("div", { class: "cta-bar" }, action(artist ? "ذخیره و ارسال برای بررسی" : "ثبت درخواست هنرمندی", async () => {
           if (!form.reportValidity()) return;
           await api("/me", Object.fromEntries(new FormData(form)));
-          notify("✅ درخواست شما ثبت شد و پس از تأیید ادمین فعال می‌شود.");
+          notify("درخواستت ثبت شد و بعد از تأیید ادمین فعال می‌شود.");
           await showMe();
-        }));
-      const summary = artist
-        ? h("div", { class: "card" },
-            h("p", {}, "وضعیت: ", h("span", { class: `badge ${artist.status}` }, STATUS[artist.status])),
-            totals.length
-              ? h("ul", {}, ...totals.map(t =>
-                  h("li", {}, `${t.count} حمایت — مجموع `, amountEl(t.amount, UNITS[t.asset]))))
-              : h("p", { class: "hint" }, "هنوز حمایتی دریافت نکرده‌اید."))
-        : h("p", { class: "hint" }, "هنرمند مستقل هستید؟ پروفایلتان را بسازید تا طرفدارانتان از شما حمایت کنند.");
-      view.replaceChildren(summary, form);
+        })));
     }
 
     async function boot() {
       tg.ready();
       tg.expand();
-      document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
-      tg.BackButton.onClick(() => setTab("artists"));
-      await showArtists();
+      applyTheme();
+      tg.onEvent("themeChanged", applyTheme);
+      dock.append(h("div", { class: "dock" }, ...TABS.map(([tab, label, name]) =>
+        h("button", { type: "button", "data-tab": tab, onclick: () => setTab(tab) }, icon(name), label))));
+      tg.BackButton.onClick(() => setTab(currentTab));
       // Share links look like t.me/<bot>?startapp=artist_<id>
       const artistId = Number((tg.initDataUnsafe.start_param || "").replace("artist_", ""));
-      const artist = artists.find(a => a.id === artistId);
-      if (artist) showArtist(artist);
+      if (artistId) {
+        currentTab = "artists";
+        return openArtist(artistId);
+      }
+      await showEvents();
     }
 
     if (tg?.initData) boot().catch(e => notify(e.message));
-    else view.replaceChildren(h("p", { class: "hint" }, "این صفحه را از داخل ربات آرگورن در تلگرام باز کنید."));
+    else view.replaceChildren(h("p", { class: "loading" }, "این صفحه را از داخل ربات آرگورن در تلگرام باز کنید."));
   </script>
 </body>
 </html>
