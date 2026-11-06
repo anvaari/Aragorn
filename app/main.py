@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from api.v1 import router as api_router
 from core.scheduler import (shutdown_scheduler, start_bot_scheduler,
@@ -30,3 +32,5 @@ app.add_middleware(
 )
 
 app.include_router(api_router.router, prefix="/api/v1")
+# Telegram Mini App (static page); Telegram requires this to be reachable over HTTPS.
+app.mount("/miniapp", StaticFiles(directory=Path(__file__).parent / "miniapp", html=True), name="miniapp")

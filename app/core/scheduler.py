@@ -24,6 +24,13 @@ def _run_reminder_tick() -> None:
     except Exception:
         logger.error("Reminder tick failed",exc_info=True)
 
+def _run_gram_sweep() -> None:
+    try:
+        from services.donation_service import verify_pending_gram_donations
+        verify_pending_gram_donations()
+    except Exception:
+        logger.error("Pending GRAM donation sweep failed",exc_info=True)
+
 def build_digest_scheduler() -> BackgroundScheduler | None:
     if not app_settings.digest_enabled:
         logger.info("Digest scheduler disabled (digest_enabled=false)")
@@ -59,13 +66,22 @@ def start_digest_scheduler() -> BackgroundScheduler | None:
     return scheduler
 
 def start_bot_scheduler() -> BackgroundScheduler:
-    """Reminder tick (10 min)."""
+    """Reminder tick (10 min) and pending GRAM donation sweep (separate job, so a slow sweep never delays reminders)."""
     scheduler = BackgroundScheduler(timezone=app_settings.digest_timezone)
     scheduler.add_job(
         _run_reminder_tick,
         trigger=IntervalTrigger(minutes=10),
         id="bot-reminder-tick",
         name="bot due-reminder tick",
+        misfire_grace_time=_MISFIRE_GRACE_SECONDS,
+        coalesce=True,
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        _run_gram_sweep,
+        trigger=IntervalTrigger(minutes=10),
+        id="gram-donation-sweep",
+        name="pending GRAM donation sweep",
         misfire_grace_time=_MISFIRE_GRACE_SECONDS,
         coalesce=True,
         replace_existing=True,

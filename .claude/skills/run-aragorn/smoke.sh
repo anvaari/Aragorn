@@ -61,7 +61,13 @@ echo "== schema =="
 import json, sys, urllib.request
 d = json.load(urllib.request.urlopen(f"{sys.argv[1]}/openapi.json"))
 paths = sorted(f"{m.upper()} {p}" for p, ms in d["paths"].items() for m in ms)
-expected = ["POST /api/v1/events/ig_event", "POST /api/v1/events/image_event", "POST /api/v1/events/manual_event"]
+expected = sorted([
+    "POST /api/v1/events/ig_event", "POST /api/v1/events/image_event", "POST /api/v1/events/manual_event",
+    "GET /api/v1/miniapp/artists", "GET /api/v1/miniapp/me", "POST /api/v1/miniapp/me",
+    "GET /api/v1/miniapp/tonconnect-manifest.json", "POST /api/v1/miniapp/donations/{donation_id}/verify",
+    "POST /api/v1/miniapp/artists/{artist_id}/gram", "POST /api/v1/miniapp/artists/{artist_id}/stars",
+    "POST /api/v1/miniapp/artists/{artist_id}/usdc",
+])
 ok = d["info"]["title"].startswith("Aragorn") and paths == expected
 print(("PASS: " if ok else "FAIL: ") + f"openapi title={d['info']['title']!r} paths={paths}")
 sys.exit(0 if ok else 1)
@@ -74,6 +80,8 @@ code() { curl -s -o /tmp/aragorn-smoke-body -w '%{http_code}' "$@"; }
 check "GET / is 404 (no root route)" "404" "$(code "$BASE/")"
 check "ig_event no auth -> 403" "403" "$(code -X POST "$BASE/api/v1/events/ig_event")"
 check "ig_event wrong token -> 403" "403" "$(code -X POST -H 'Authorization: Bearer wrong' "$BASE/api/v1/events/ig_event")"
+check "miniapp artists without init data -> 401" "401" "$(code "$BASE/api/v1/miniapp/artists")"
+check "miniapp page is served" "200" "$(code "$BASE/miniapp/")"
 
 TOKEN="$(env_key aragorn_tk)"
 if [ -z "$TOKEN" ]; then echo "FAIL: could not read aragorn_tk from .env"; FAILS=$((FAILS+1)); fi

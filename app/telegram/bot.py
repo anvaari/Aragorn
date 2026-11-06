@@ -1,3 +1,5 @@
+import json
+
 import requests
 from core.config import app_settings
 from log.logger import get_app_logger
@@ -28,6 +30,20 @@ def send_text_to_chat(chat_id:str|int, text:str, reply_markup:str|None = None):
         data=data,
         proxies=proxies
     )
+    return res.status_code,res.json()
+
+def create_stars_invoice_link(title: str, description: str, payload: str, amount: int):
+    """Telegram Stars (XTR) invoice link for WebApp.openInvoice; Stars take no provider_token."""
+    token = app_settings.telegram_bot_token
+    url = f"https://api.telegram.org/bot{token}/createInvoiceLink"
+    data = {
+        "title": title,
+        "description": description,
+        "payload": payload,
+        "currency": "XTR",
+        "prices": json.dumps([{"label": title, "amount": amount}]),
+    }
+    res = requests.post(url, data=data, proxies=_proxies(), timeout=10)
     return res.status_code,res.json()
 
 def send_text_to_telegram(text):

@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>آرگورن — حمایت از هنرمندان</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Pinned + SRI: this script builds the wallet transfer, so a tampered copy must not load. -->
+  <script src="https://unpkg.com/@tonconnect/ui@5.0.1/dist/tonconnect-ui.min.js"
+          integrity="sha384-QZvMrS6g6/TQyHjoc44P3RG1Kzfqnwen5A/EZ0LaQZKP8hvNY2stUmyFB5QDIKmp"
+          crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --bg: var(--tg-theme-bg-color, #ffffff);
+      --text: var(--tg-theme-text-color, #1c1c1e);
+      --hint: var(--tg-theme-hint-color, #8e8e93);
+      --card: var(--tg-theme-secondary-bg-color, #f2f2f7);
+      --line: var(--tg-theme-section-separator-color, #d1d1d6);
+      --accent: var(--tg-theme-button-color, #2ea6ff);
+      --accent-text: var(--tg-theme-button-text-color, #ffffff);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 12px 16px 32px; background: var(--bg); color: var(--text);
+           font: 15px/1.6 -apple-system, "Segoe UI", Tahoma, sans-serif; }
+    h1 { font-size: 20px; margin: 4px 0 12px; }
+    h2 { font-size: 18px; margin: 0 0 4px; }
+    h3 { font-size: 15px; margin: 0 0 8px; }
+    p { margin: 4px 0; }
+    nav { display: flex; gap: 8px; margin-bottom: 12px; }
+    button { font: inherit; cursor: pointer; }
+    button:disabled { opacity: .6; }
+    .tab { flex: 1; padding: 10px; border: 0; border-radius: 12px; background: var(--card); color: var(--text); }
+    .tab.active { background: var(--accent); color: var(--accent-text); }
+    .card { display: block; width: 100%; margin-bottom: 12px; padding: 14px; border: 0; border-radius: 14px;
+            background: var(--card); color: inherit; text-align: start; }
+    .artist strong { display: block; font-size: 16px; }
+    .hint { color: var(--hint); font-size: 13px; }
+    label { display: block; color: var(--hint); font-size: 13px; }
+    input, textarea { width: 100%; margin: 6px 0 10px; padding: 10px 12px; border: 1px solid var(--line);
+                      border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; }
+    .row { display: flex; gap: 8px; }
+    .chip { flex: 1; padding: 8px; border: 1px solid var(--accent); border-radius: 10px;
+            background: transparent; color: var(--accent); }
+    .primary { width: 100%; padding: 12px; border: 0; border-radius: 12px; background: var(--accent);
+               color: var(--accent-text); font-weight: 600; }
+    .address { width: 100%; margin: 6px 0; padding: 10px; border: 1px dashed var(--line); border-radius: 10px;
+               background: var(--bg); color: var(--text); font: 13px ui-monospace, monospace;
+               word-break: break-all; user-select: all; }
+    .badge { padding: 2px 10px; border-radius: 999px; background: var(--bg); }
+    .badge.approved { color: #2e9e5b; }
+    .badge.rejected { color: #d9443a; }
+    .status { text-align: center; font-weight: 600; }
+    .status:empty { display: none; }
+    #ton-connect { display: flex; justify-content: center; margin-bottom: 8px; }
+    #ton-connect, #tc-widget-root { direction: ltr; } /* TON Connect UI is English-only */
+  </style>
+</head>
+<body>
+  <h1>🎵 آرگورن — حمایت از هنرمندان مستقل</h1>
+  <nav>
+    <button class="tab active" data-tab="artists">🎤 هنرمندان</button>
+    <button class="tab" data-tab="me">🎨 پروفایل هنرمندی من</button>
+  </nav>
+  <main id="view"></main>
+  <script>
+    const tg = window.Telegram?.WebApp;
+    const API = "/api/v1/miniapp";
+    const STATUS = { pending: "در انتظار تأیید ادمین", approved: "تأیید شده ✅", rejected: "رد شده" };
+    const UNITS = { XTR: "Stars ⭐️", GRAM: "GRAM 💎", USDC: "USDC 💵" };
+    const view = document.getElementById("view");
+    let artists = [];
+    let tonConnect = null;
+
+    // Tiny DOM builder; user text always goes in as text nodes, never as HTML.
+    function h(tag, attrs = {}, ...children) {
+      const el = document.createElement(tag);
+      for (const [key, value] of Object.entries(attrs)) {
+        if (key.startsWith("on")) el.addEventListener(key.slice(2), value);
+        else el.setAttribute(key, value);
+      }
+      el.append(...children.filter(child => child != null && child !== false));
+      return el;
+    }
+
+    async function api(path, body) {
+      const res = await fetch(API + path, {
+        method: body ? "POST" : "GET",
+        headers: { "Authorization": "tma " + tg.initData, "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(typeof data.detail === "string" ? data.detail : "مقادیر واردشده معتبر نیست.");
+      }
+      return data;
+    }
+
+    function notify(message) { tg.showAlert(message); }
+
+    // Bidi-isolated "1.5 GRAM": a Latin amount inside Persian text would otherwise reorder.
+    function amountEl(amount, unit) { return h("bdi", { dir: "ltr" }, `${amount} ${unit}`); }
+
+    // A button that is disabled while its action runs, so one tap = one payment request.
+    function action(label, run) {
+      const button = h("button", { class: "primary", type: "button" }, label);
+      button.onclick = async () => {
+        button.disabled = true;
+        try { await run(); } catch (e) { notify(e.message); } finally { button.disabled = false; }
+      };
+      return button;
+    }
+
+    function tonUI() {
+      tonConnect ??= new TON_CONNECT_UI.TonConnectUI({
+        manifestUrl: location.origin + API + "/tonconnect-manifest.json",
+      });
+      return tonConnect;
+    }
+
+    function setTab(name) {
+      document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+      tg.BackButton.hide();
+      (name === "me" ? showMe() : showArtists()).catch(e => notify(e.message));
+    }
+
+    async function showArtists() {
+      view.replaceChildren(h("p", { class: "hint" }, "در حال بارگذاری…"));
+      artists = await api("/artists");
+      if (!artists.length) {
+        view.replaceChildren(h("p", { class: "hint" }, "هنوز هنرمندی ثبت نشده است."));
+        return;
+      }
+      view.replaceChildren(...artists.map(artist =>
+        h("button", { class: "card artist", onclick: () => showArtist(artist) },
+          h("strong", {}, artist.name),
+          artist.bio && h("span", { class: "hint" }, artist.bio))));
+    }
+
+    function showArtist(artist) {
+      tg.BackButton.show();
+      const status = h("p", { class: "status" });
+      view.replaceChildren(...[
+        h("div", { class: "card" }, h("h2", {}, artist.name), artist.bio && h("p", {}, artist.bio)),
+        starsSection(artist, status),
+        artist.ton_address && gramSection(artist, status),
+        artist.evm_address && usdcSection(artist, status),
+        status,
+      ].filter(Boolean));
+      if (artist.ton_address) tonUI().uiOptions = { buttonRootId: "ton-connect" };
+    }
+
+    function starsSection(artist, status) {
+      const amount = h("input", { type: "number", min: "1", max: "10000", value: "100", inputmode: "numeric" });
+      return h("section", { class: "card" },
+        h("h3", {}, "⭐️ استارز تلگرام"),
+        h("div", { class: "row" }, ...[50, 100, 500].map(n =>
+          h("button", { class: "chip", type: "button", onclick: () => { amount.value = n; } }, `${n} ⭐️`))),
+        amount,
+        action("پرداخت با استارز", async () => {
+          const { invoice_link } = await api(`/artists/${artist.id}/stars`, { amount: Number(amount.value) });
+          tg.openInvoice(invoice_link, result => {
+            if (result === "paid") status.textContent = "🙏 ممنون! حمایت استارز شما ثبت شد.";
+            else if (result === "failed") status.textContent = "پرداخت ناموفق بود.";
+          });
+        }));
+    }
+
+    function gramSection(artist, status) {
+      const amount = h("input", { type: "number", min: "0.1", step: "0.1", value: "1", inputmode: "decimal" });
+      return h("section", { class: "card" },
+        h("h3", {}, "💎 GRAM (شبکه TON)"),
+        h("p", { class: "hint" }, "مستقیم از کیف پول شما به کیف پول هنرمند واریز می‌شود."),
+        h("div", { id: "ton-connect" }),
+        amount,
+        action("ارسال GRAM", () => donateGram(artist, amount.value, status)));
+    }
+
+    async function donateGram(artist, amount, status) {
+      const ui = tonUI();
+      if (!ui.connected) return ui.openModal();
+      const donation = await api(`/artists/${artist.id}/gram`, { amount });
+      try {
+        await ui.sendTransaction({
+          validUntil: Math.floor(Date.now() / 1000) + 600,
+          messages: [{ address: donation.address, amount: donation.amount, payload: donation.payload }],
+        });
+      } catch {
+        status.textContent = "تراکنش لغو شد.";
+        return;
+      }
+      status.textContent = "⏳ تراکنش ارسال شد؛ در حال تأیید روی شبکه…";
+      for (let i = 0; i < 30; i++) {
+        await new Promise(resolve => setTimeout(resolve, 4000));
+        const { status: state } = await api(`/donations/${donation.donation_id}/verify`, {});
+        if (state === "confirmed") {
+          status.textContent = "🙏 ممنون! حمایت GRAM شما تأیید شد.";
+          return;
+        }
+      }
+      status.textContent = "تراکنش هنوز تأیید نشده؛ به‌محض تأیید روی شبکه ثبت می‌شود.";
+    }
+
+    function usdcSection(artist, status) {
+      const txHash = h("input", { placeholder: "0x…", dir: "ltr" });
+      return h("section", { class: "card" },
+        h("h3", {}, "💵 USDC (شبکه Base)"),
+        h("p", { class: "hint" }, "فقط USDC روی شبکه Base را به این آدرس بفرستید، سپس هش تراکنش را وارد کنید:"),
+        h("button", {
+          class: "address", type: "button", dir: "ltr",
+          onclick: () => navigator.clipboard.writeText(artist.evm_address).then(
+            () => notify("آدرس کپی شد."), () => notify(artist.evm_address)),
+        }, artist.evm_address),
+        h("label", {}, "هش تراکنش", txHash),
+        action("ثبت تراکنش", async () => {
+          const result = await api(`/artists/${artist.id}/usdc`, { tx_hash: txHash.value.trim() });
+          status.replaceChildren("🙏 ممنون! ", amountEl(result.amount, "USDC"), " ثبت شد.");
+        }));
+    }
+
+    async function showMe() {
+      view.replaceChildren(h("p", { class: "hint" }, "در حال بارگذاری…"));
+      const { artist, totals } = await api("/me");
+      const field = (name, label, attrs = {}) =>
+        h("label", {}, label, h("input", { name, value: artist?.[name] || "", ...attrs }));
+      const form = h("form", { class: "card" },
+        field("name", "نام هنری", { required: "", maxlength: "64" }),
+        h("label", {}, "معرفی کوتاه", h("textarea", { name: "bio", maxlength: "500", rows: "3" }, artist?.bio || "")),
+        field("ton_address", "آدرس کیف پول GRAM (TON) — اختیاری", { dir: "ltr", placeholder: "UQ…" }),
+        field("evm_address", "آدرس کیف پول USDC روی شبکه Base — اختیاری", { dir: "ltr", placeholder: "0x…" }),
+        h("p", { class: "hint" },
+          "GRAM و USDC مستقیم به کیف پول شما واریز می‌شوند. استارزها در حساب ربات جمع می‌شوند و ادمین با شما تسویه می‌کند. " +
+          "پروفایل پس از تأیید ادمین نمایش داده می‌شود و هر ویرایش دوباره بررسی می‌شود."),
+        action(artist ? "ذخیره و ارسال برای بررسی" : "ثبت درخواست هنرمندی", async () => {
+          if (!form.reportValidity()) return;
+          await api("/me", Object.fromEntries(new FormData(form)));
+          notify("✅ درخواست شما ثبت شد و پس از تأیید ادمین فعال می‌شود.");
+          await showMe();
+        }));
+      const summary = artist
+        ? h("div", { class: "card" },
+            h("p", {}, "وضعیت: ", h("span", { class: `badge ${artist.status}` }, STATUS[artist.status])),
+            totals.length
+              ? h("ul", {}, ...totals.map(t =>
+                  h("li", {}, `${t.count} حمایت — مجموع `, amountEl(t.amount, UNITS[t.asset]))))
+              : h("p", { class: "hint" }, "هنوز حمایتی دریافت نکرده‌اید."))
+        : h("p", { class: "hint" }, "هنرمند مستقل هستید؟ پروفایلتان را بسازید تا طرفدارانتان از شما حمایت کنند.");
+      view.replaceChildren(summary, form);
+    }
+
+    async function boot() {
+      tg.ready();
+      tg.expand();
+      document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
+      tg.BackButton.onClick(() => setTab("artists"));
+      await showArtists();
+      // Share links look like t.me/<bot>?startapp=artist_<id>
+      const artistId = Number((tg.initDataUnsafe.start_param || "").replace("artist_", ""));
+      const artist = artists.find(a => a.id === artistId);
+      if (artist) showArtist(artist);
+    }
+
+    if (tg?.initData) boot().catch(e => notify(e.message));
+    else view.replaceChildren(h("p", { class: "hint" }, "این صفحه را از داخل ربات آرگورن در تلگرام باز کنید."));
+  </script>
+</body>
+</html>

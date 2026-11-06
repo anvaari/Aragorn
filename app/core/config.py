@@ -55,5 +55,13 @@ class Settings(BaseSettings):
     # set false on secondary/dev instances.
     bot_enabled: bool = Field(default=True, alias="bot_enabled")
 
+    # Public HTTPS URL of the donations Mini App (served by this app at /miniapp/),
+    # e.g. https://aragorn.example.com/miniapp/. Empty -> no Mini App button in the bot.
+    miniapp_url: str = Field(default="", alias="miniapp_url")
+
+    # Personal (numeric) Telegram chat id of the admin — artist claims are sent
+    # here for approval. Empty -> claims stay pending.
+    bot_admin_chat_id: str = Field(default="", alias="bot_admin_chat_id")
+
 app_settings = Settings() # type: ignore
 

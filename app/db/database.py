@@ -58,6 +58,36 @@ def create_table(conn: sqlite3.Connection) -> None:
         )
         """,
     ]
+    donation_ddls = [
+        # revision bumps on every edit so an admin can't approve data they never saw
+        """
+        CREATE TABLE IF NOT EXISTS artist_profiles (
+            id INTEGER PRIMARY KEY,
+            chat_id INTEGER NOT NULL UNIQUE,
+            username TEXT,
+            name TEXT NOT NULL,
+            bio TEXT,
+            ton_address TEXT,
+            evm_address TEXT,
+            status TEXT NOT NULL DEFAULT 'pending',
+            revision INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT
+        )
+        """,
+        # amount is in base units: Stars / nanoGRAM (9 decimals) / USDC (6 decimals)
+        """
+        CREATE TABLE IF NOT EXISTS donations (
+            id INTEGER PRIMARY KEY,
+            artist_id INTEGER NOT NULL,
+            donor_chat_id INTEGER,
+            asset TEXT NOT NULL,
+            amount INTEGER,
+            tx_ref TEXT UNIQUE,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TEXT
+        )
+        """,
+    ]
     try:
         cur = conn.cursor()
         cur.execute(events_ddl)
@@ -71,8 +101,8 @@ def create_table(conn: sqlite3.Connection) -> None:
             except sqlite3.OperationalError as e:
                 if "duplicate column" not in str(e).lower():  # a concurrent process may win the ALTER race
                     raise
-        for bot_ddl in bot_ddls:
-            cur.execute(bot_ddl)
+        for ddl in bot_ddls + donation_ddls:
+            cur.execute(ddl)
     except Exception as e:
         logger.critical("Can't create tables on database",exc_info=True)
         raise e
