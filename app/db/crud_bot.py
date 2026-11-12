@@ -48,7 +48,8 @@ def add_event_reminder(chat_id: int, event_id: int, remind_at: str) -> bool:
 
 _REMINDER_SELECT = (
     "SELECT r.id, r.chat_id, r.event_id, r.remind_at, r.sent, "
-    "e.title AS event_title, e.datetime AS event_datetime, e.location AS event_location "
+    "e.title AS event_title, e.datetime AS event_datetime, e.location AS event_location, "
+    "e.tg_message_id AS event_tg_message_id "
     "FROM event_reminders r LEFT JOIN events e ON e.id = r.event_id"
 )
 

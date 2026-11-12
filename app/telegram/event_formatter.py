@@ -14,6 +14,22 @@ DIGEST_MAX_CHARS = 4000  # headroom under Telegram's 4096 hard limit
 def _escape_md(text: str) -> str:
     return text.replace('_','\\_')
 
+def channel_post_link(tg_message_id: int | None) -> str | None:
+    """Deep link to a channel post: public @username if set, else the private t.me/c/ form.
+
+    t.me/c/ links open for channel members only; non-members get Telegram's
+    "private channel" screen.
+    """
+    if not tg_message_id:
+        return None
+    username = (app_settings.telegram_channel_username or "").strip().lstrip("@")
+    if username:
+        return f"https://t.me/{username}/{tg_message_id}"
+    chat_id = str(app_settings.telegram_chat_id or "").strip()
+    if chat_id.startswith("-100"):  # supergroup/channel id -> internal id drops the -100
+        return f"https://t.me/c/{chat_id[4:]}/{tg_message_id}"
+    return None
+
 def bot_footer() -> str:
     """Promo line linking to the interactive bot; empty when no username is configured."""
     username = (app_settings.telegram_bot_username or "").strip().lstrip("@")

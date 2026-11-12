@@ -23,6 +23,7 @@ def send_due_reminders() -> dict:
             reminder.get("event_datetime"),
             reminder.get("event_location") or "",
             hours=hours,
+            tg_message_id=reminder.get("event_tg_message_id"),
         )
         try:
             status, res = send_text_to_chat(reminder["chat_id"], text)

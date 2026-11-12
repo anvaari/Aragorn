@@ -4,7 +4,7 @@ from aiogram.filters.command import CommandObject
 from aiogram.types import CallbackQuery, Message
 
 from db import crud_bot
-from db.crud_event import get_event_by_id
+from db.crud_event import get_event_with_tg_message_id
 from log.logger import get_app_logger
 from telegram_bot.callbacks import MenuCB
 from telegram_bot.cards import format_event_card
@@ -55,10 +55,11 @@ async def cmd_start(message: Message, command: CommandObject) -> None:
         except ValueError:
             event_id = None
         if event_id is not None:
-            event = get_event_by_id(event_id)
-            if event:
+            row = get_event_with_tg_message_id(event_id)
+            if row:
+                tg_message_id, event = row
                 await message.answer(
-                    format_event_card(event),
+                    format_event_card(event, tg_message_id),
                     reply_markup=event_card_keyboard(event_id),
                 )
                 return

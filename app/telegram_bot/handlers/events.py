@@ -5,7 +5,8 @@ from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
 
 from db import crud_bot
-from db.crud_event import get_event_by_id, get_events_by_jdate_with_ids
+from db.crud_event import (get_event_by_id, get_event_with_tg_message_id,
+                           get_events_by_jdate_with_ids)
 from log.logger import get_app_logger
 from telegram_bot.callbacks import DayCB, EventCB, MenuCB, RemindHoursCB, RemindSetCB
 from telegram_bot.cards import _escape_md, format_event_card
@@ -81,11 +82,12 @@ async def search_by_date(message: Message) -> None:
 
 @router.callback_query(EventCB.filter())
 async def show_event(callback: CallbackQuery, callback_data: EventCB) -> None:
-    event = get_event_by_id(callback_data.event_id)
-    if not event:
+    row = get_event_with_tg_message_id(callback_data.event_id)
+    if not row:
         await callback.answer("🤔 رویداد مورد نظر پیدا نشد.", show_alert=True)
         return
-    await safe_edit(callback, format_event_card(event),
+    tg_message_id, event = row
+    await safe_edit(callback, format_event_card(event, tg_message_id),
                     event_card_keyboard(callback_data.event_id))
     await callback.answer()
 

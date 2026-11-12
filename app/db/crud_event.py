@@ -93,3 +93,9 @@ def get_events_like_performer_with_ids(artist_name: str) -> list[tuple[int, Even
 def get_event_by_id(event_id: int) -> EventCreate | None:
     rows = _select_event_rows("id = ?", (event_id,))
     return _row_to_event(rows[0]) if rows else None
+
+def get_event_with_tg_message_id(event_id: int) -> tuple[int | None, EventCreate] | None:
+    rows = _select_event_rows("id = ?", (event_id,), with_tg_message_id=True)
+    if not rows:
+        return None
+    return rows[0].get("tg_message_id"), _row_to_event(rows[0])

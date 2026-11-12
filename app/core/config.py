@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     )
 
     # Public @username of the Aragorn Telegram channel, WITHOUT the leading @.
-    # Empty -> digest titles render as plain text (no t.me links).
+    # Empty -> post links fall back to the private t.me/c/ form built from telegram_chat_id.
     telegram_channel_username: str = Field(default="", alias="telegram_channel_username")
 
     # Public @username of the interactive bot, WITHOUT the leading @.

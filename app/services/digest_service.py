@@ -7,7 +7,7 @@ from core.config import app_settings
 from db.crud_event import get_events_by_jdate_with_tg_message_ids
 from log.logger import get_app_logger
 from telegram.bot import send_text_to_telegram
-from telegram.event_formatter import format_events_digest
+from telegram.event_formatter import channel_post_link, format_events_digest
 from utils.event_time import jdate_fa
 
 logger = get_app_logger(__name__)
@@ -23,11 +23,6 @@ def _target_jdate(day_offset: int) -> tuple[str, str]:
     weekday_fa = jdatetime.date.j_weekdays_fa[jd.isoweekday() - 1]
     return jdate, weekday_fa
 
-def _post_link(tg_message_id: int | None) -> str | None:
-    username = (app_settings.telegram_channel_username or "").strip().lstrip("@")
-    if not username or not tg_message_id:
-        return None
-    return f"https://t.me/{username}/{tg_message_id}"
 
 def send_events_digest(day_offset: int) -> dict:
     jdate, weekday_fa = _target_jdate(day_offset)
@@ -41,7 +36,7 @@ def send_events_digest(day_offset: int) -> dict:
                 "jdate": jdate, "day_offset": day_offset}
 
     events = [event for _, event in rows]
-    post_links = [_post_link(mid) for mid, _ in rows]
+    post_links = [channel_post_link(mid) for mid, _ in rows]
     digest_text = format_events_digest(events, day_label, post_links)
     status, res = send_text_to_telegram(digest_text)
     if status != 200:

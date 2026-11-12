@@ -2,7 +2,7 @@
 import re
 
 from models.event import EventCreate
-from telegram.event_formatter import LOC_PATTERN, _escape_md
+from telegram.event_formatter import LOC_PATTERN, _escape_md, channel_post_link
 from utils.event_time import fa_digits, format_jdatetime
 
 UNKNOWN_TIME = "00:01"
@@ -16,7 +16,7 @@ def _location_part(location: str) -> str:
     return ""
 
 
-def format_event_card(event: EventCreate) -> str:
+def format_event_card(event: EventCreate, tg_message_id: int | None = None) -> str:
     """Compact full-detail card for DMs (tighter than the channel post format)."""
     if not event.date or event.time == UNKNOWN_TIME:
         when = "زمان نامشخص" + (f" — ساعت {fa_digits(event.time)}" if event.time and event.time != UNKNOWN_TIME else "")
@@ -39,11 +39,15 @@ def format_event_card(event: EventCreate) -> str:
         lines.append(f"📸 [لینک اینستاگرام]({event.instagram_link})")
     if event.google_calendar_link:
         lines.append(f"📅 [افزودن به تقویم گوگل]({event.google_calendar_link})")
+    post_link = channel_post_link(tg_message_id)
+    if post_link:
+        lines.append(f"📢 [مشاهده پست کانال]({post_link})")
     return "\n".join(lines)
 
 
 def format_reminder_ping(event_title: str, event_datetime: str | None,
-                         location: str, hours: int) -> str:
+                         location: str, hours: int,
+                         tg_message_id: int | None = None) -> str:
     when = format_jdatetime(event_datetime) if event_datetime else "زمان نامشخص"
     lines = [
         f"⏰ *یادآوری: {fa_digits(hours)} ساعت مانده به رویداد*",
@@ -55,4 +59,7 @@ def format_reminder_ping(event_title: str, event_datetime: str | None,
         lines.append(_location_part(location))
     lines.append("")
     lines.append("🎶 به‌زودی شروع می‌شود!")
+    post_link = channel_post_link(tg_message_id)
+    if post_link:
+        lines.append(f"📢 [مشاهده پست کانال]({post_link})")
     return "\n".join(lines)
