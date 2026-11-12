@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     # Empty -> digest titles render as plain text (no t.me links).
     telegram_channel_username: str = Field(default="", alias="telegram_channel_username")
 
+    # Public @username of the interactive bot, WITHOUT the leading @.
+    # Empty -> channel posts and digests carry no bot footer.
+    telegram_bot_username: str = Field(default="", alias="telegram_bot_username")
+
     # Interactive bot (long polling). Only ONE process may poll per token;
     # set false on secondary/dev instances.
     bot_enabled: bool = Field(default=True, alias="bot_enabled")

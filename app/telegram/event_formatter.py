@@ -1,3 +1,4 @@
+from core.config import app_settings
 from models.event import EventCreate
 from log.logger import get_app_logger
 from utils.event_time import fa_digits, format_jdatetime
@@ -12,6 +13,13 @@ DIGEST_MAX_CHARS = 4000  # headroom under Telegram's 4096 hard limit
 
 def _escape_md(text: str) -> str:
     return text.replace('_','\\_')
+
+def bot_footer() -> str:
+    """Promo line linking to the interactive bot; empty when no username is configured."""
+    username = (app_settings.telegram_bot_username or "").strip().lstrip("@")
+    if not username:
+        return ""
+    return f"🤖 [جستجوی راحت‌تر رویدادها و تنظیم یادآور در ربات آراگورن](https://t.me/{username})"
 
 def format_event_for_telegram(event:EventCreate) -> str:
     loc_pattern = r'^[-+]?([1-8]?\d(\.\d+)?|90(\.0+)?),\s*[-+]?(180(\.0+)?|((1[0-7]\d)|(\d{1,2}))(\.\d+)?)$'
@@ -51,7 +59,9 @@ def format_event_for_telegram(event:EventCreate) -> str:
     {"\n"+insta_link if insta_link else ""}
     """
     msg_escaped = msg.replace('_','\\_')
-    return msg_escaped
+    footer = bot_footer()
+    # Append after escaping so a `_` in the bot username is not mangled into the URL.
+    return msg_escaped + (f"\n{footer}" if footer else "")
 
 
 def _title_line(event: EventCreate, link: str | None) -> str:
@@ -81,11 +91,15 @@ def format_events_digest(events: list[EventCreate], day_label: str,
             block += f"📸 [لینک اینستاگرام]({event.instagram_link})\n"
         event_blocks.append(block)
 
+    footer = bot_footer()
+    footer_block = f"\n{footer}" if footer else ""
+    budget = DIGEST_MAX_CHARS - len(footer_block)
+
     header = f"🗓️ *رویدادهای {day_label}*\n"
     text = header
     included = 0
     for block in event_blocks:
-        if included and len(text) + len(block) + 1 > DIGEST_MAX_CHARS:
+        if included and len(text) + len(block) + 1 > budget:
             break
         text += "\n" + block
         included += 1
@@ -94,4 +108,4 @@ def format_events_digest(events: list[EventCreate], day_label: str,
     if omitted > 0:
         logger.warning(f"Digest truncated: {omitted} of {len(events)} events omitted (4096 char limit)")
         text += f"\n… و {omitted} رویداد دیگر\n"
-    return text
+    return text + footer_block
